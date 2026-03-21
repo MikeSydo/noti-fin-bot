@@ -3,6 +3,9 @@ from aiogram.types import Message, message
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
+from models.account import Account
+from app.keyboards.start_menu import get_main_menu
+from services.notion_writer import notion_writer
 
 router = Router()
 
@@ -57,7 +60,33 @@ async def handle_name_input(message: Message, state: FSMContext):
     )
     await state.set_state(AddAccountsState.waiting_for_name)
 
-async def save_account():
+async def save_account(message: Message, state: FSMContext):
     """Save account to Notion."""
-    #TODO: need to create service to save data in notion
-    pass
+    data = await state.get_data()
+    await state.clear()
+
+    try:
+        account =Account(
+            name=data["name"],
+            initial_amount=Decimal(data["initial_amount"]),
+        )
+
+        success = await notion_writer.add_account(account)
+
+        if success:
+            await message.answer(
+                f"Акаунт збережено!\n\n{account.name}\n{account.initial_amount}",
+                parse_mode="Markdown",
+                reply_markup=get_main_menu(),
+            )
+        else:
+            await message.answer(
+                'Не вдалось зберегти. Перевірте Notion налаштування.',
+                reply_markup=get_main_menu()
+            )
+
+    except Exception as e:
+        await message.answer(
+            'Виникла помилка при збереженні.',
+            reply_markup=get_main_menu(),
+        )
