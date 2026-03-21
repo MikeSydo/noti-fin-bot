@@ -3,8 +3,10 @@ import logging
 
 from aiogram import Dispatcher, Bot
 from config import settings
-from app.handlers import manual, receipt
+from app.handlers import manual, receipt, accounts
 from aiogram.types import BotCommand
+
+from models import account
 
 bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
 dp = Dispatcher() #router to process messages, callback, etc...
@@ -22,6 +24,7 @@ async def main():
     """Main function - start polling."""
     dp.include_router(manual.router)
     dp.include_router(receipt.router)
+    dp.include_router(accounts.router)
 
     await set_bot_commands()
 

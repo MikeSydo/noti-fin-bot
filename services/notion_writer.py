@@ -30,7 +30,7 @@ class NotionWriter:
                 initial_amount=account.initial_amount
             )
             self.client.pages.create(
-                parent={"account_db_id": self.account_db_id},
+                parent={"database_id": self.account_db_id},
                 properties=properties,
             )
             return True
@@ -49,7 +49,7 @@ class NotionWriter:
                 "title": [{"text": {"content": name}}],
             },
             "Initial Amount": {
-                "number": initial_amount,
+                "number": float(initial_amount) if initial_amount is not None else None,
             }
         }
 

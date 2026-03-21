@@ -19,13 +19,17 @@ async def btn_add_account(message: Message, state: FSMContext):
     """Reply keyboard: Add account button."""
     await start_add_account(message, state)
 
-async def start_add_account(state: FSMContext):
+async def start_add_account(message: Message, state: FSMContext):
     """Common logic to add account in notion db."""
     await state.clear()
+    await message.answer(
+        'Введіть назву акаунта.',
+        parse_mode="Markdown",
+    )
     await state.set_state(AddAccountsState.waiting_for_name)
 
-@router.callback_query(AddAccountsState.waiting_for_name)
-async def handle_add_account_name(state: FSMContext):
+@router.message(AddAccountsState.waiting_for_name)
+async def handle_add_account_name(message: Message, state: FSMContext):
     """Handle account name input."""
     name = message.text.strip()
     if not name:
@@ -58,7 +62,7 @@ async def handle_name_input(message: Message, state: FSMContext):
         f'Початкова сума: {initial_amount}'.format(initial_amount=f"{initial_amount:.2f}"),
         parse_mode="Markdown",
     )
-    await state.set_state(AddAccountsState.waiting_for_name)
+    await save_account(message, state)
 
 async def save_account(message: Message, state: FSMContext):
     """Save account to Notion."""
@@ -77,16 +81,16 @@ async def save_account(message: Message, state: FSMContext):
             await message.answer(
                 f"Акаунт збережено!\n\n{account.name}\n{account.initial_amount}",
                 parse_mode="Markdown",
-                reply_markup=get_main_menu(),
+                reply_markup=await get_main_menu(),
             )
         else:
             await message.answer(
                 'Не вдалось зберегти. Перевірте Notion налаштування.',
-                reply_markup=get_main_menu()
+                reply_markup=await get_main_menu()
             )
 
     except Exception as e:
         await message.answer(
             'Виникла помилка при збереженні.',
-            reply_markup=get_main_menu(),
+            reply_markup=await get_main_menu(),
         )
