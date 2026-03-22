@@ -43,7 +43,7 @@ async def handle_account_name_input(message: Message, state: FSMContext):
 
     await state.update_data(name=name)
     await message.answer(
-        f'Назва: {name}\nВведіть початкову суму або натисніть пропустити.'.format(name=name),
+        'Назва: {name}\nВведіть початкову суму або натисніть пропустити.'.format(name=name),
         parse_mode="Markdown",
         reply_markup=await get_skip_initial_amount_keyboard(),
     )
@@ -53,8 +53,8 @@ async def handle_account_name_input(message: Message, state: FSMContext):
 async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext):
     """Handle skip initial amount button."""
     await callback.answer()  # remove loading animation
-    await state.update_data(initial_amount="0")
-    await callback.message.answer('Початкова сума: 0')
+    await state.update_data(initial_amount=None)
+    await callback.message.answer('Початкова сума: None')
     await save_account(callback.message, state)
 
 @router.message(AddAccountsState.waiting_for_initial_amount)
@@ -63,7 +63,7 @@ async def handle_initial_amount_input(message: Message, state: FSMContext):
     try:
         initial_amount_str = message.text.strip().replace(",", ".")
         initial_amount = Decimal(initial_amount_str)
-        if initial_amount <= 0:
+        if initial_amount < 0:
             raise InvalidOperation("Amount must be positive")
     except (InvalidOperation, ValueError):
         await message.answer('Некоректна сума. Введіть число, наприклад: 159.90')
@@ -71,7 +71,7 @@ async def handle_initial_amount_input(message: Message, state: FSMContext):
 
     await state.update_data(initial_amount=str(initial_amount))
     await message.answer(
-        f'Початкова сума: {initial_amount}'.format(initial_amount=f"{initial_amount:.2f}"),
+        'Початкова сума: {initial_amount}'.format(initial_amount=f"{initial_amount:.2f}"),
         parse_mode="Markdown",
     )
     await save_account(message, state)
@@ -82,9 +82,10 @@ async def save_account(message: Message, state: FSMContext):
     await state.clear()
 
     try:
-        account =Account(
+        init_amount = data.get("initial_amount")
+        account = Account(
             name=data["name"],
-            initial_amount=Decimal(data["initial_amount"]),
+            initial_amount=Decimal(init_amount) if init_amount is not None else None,
         )
 
         success = await notion_writer.add_account(account)
