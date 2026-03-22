@@ -20,3 +20,10 @@ async def get_accounts_keyboard(accounts: list[Account]) -> InlineKeyboardMarkup
             )
         ])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+async def get_today_date_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='Сьогоднішня дата', callback_data='today_date')]
+        ]
+    )

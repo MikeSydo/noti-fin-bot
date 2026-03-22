@@ -116,4 +116,6 @@ class NotionWriter:
             logger.error(f"Failed to add expense to Notion: {e}")
             return False
 
+    #TODO: add func get categories
+
 notion_writer = NotionWriter()

@@ -15,7 +15,7 @@ router = Router()
 
 logger = logging.getLogger(__name__)
 
-class AddAccountsState(StatesGroup):
+class AddAccountState(StatesGroup):
     """FSM state for accounts."""
     waiting_for_name = State()
     waiting_for_initial_amount = State()
@@ -28,9 +28,9 @@ async def start_add_account(message: Message, state: FSMContext):
         'Введіть назву акаунта.',
         parse_mode="Markdown",
     )
-    await state.set_state(AddAccountsState.waiting_for_name)
+    await state.set_state(AddAccountState.waiting_for_name)
 
-@router.message(AddAccountsState.waiting_for_name)
+@router.message(AddAccountState.waiting_for_name)
 async def handle_account_name_input(message: Message, state: FSMContext):
     """Handle account name input."""
     name = message.text.strip()
@@ -44,9 +44,9 @@ async def handle_account_name_input(message: Message, state: FSMContext):
         parse_mode="Markdown",
         reply_markup=await get_skip_attribute_keyboard(),
     )
-    await state.set_state(AddAccountsState.waiting_for_initial_amount)
+    await state.set_state(AddAccountState.waiting_for_initial_amount)
 
-@router.callback_query(F.data == 'skip_attribute', AddAccountsState.waiting_for_initial_amount)
+@router.callback_query(F.data == 'skip_attribute', AddAccountState.waiting_for_initial_amount)
 async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext):
     """Handle skip initial amount button."""
     await callback.answer()  # remove loading animation
@@ -54,7 +54,7 @@ async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext)
     await callback.message.answer('Початкова сума: не вказано')
     await save_account(callback.message, state)
 
-@router.message(AddAccountsState.waiting_for_initial_amount)
+@router.message(AddAccountState.waiting_for_initial_amount)
 async def handle_initial_amount_input(message: Message, state: FSMContext):
     """Handle initial amount input."""
     try:
