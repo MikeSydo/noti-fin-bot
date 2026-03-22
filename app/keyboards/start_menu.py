@@ -15,3 +15,10 @@ async def get_main_menu() -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
     )
+
+async def get_skip_initial_amount_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='Пропустити', callback_data='skip_initial_amount')]
+        ],
+    )
