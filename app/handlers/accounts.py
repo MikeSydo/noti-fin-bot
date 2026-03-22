@@ -6,10 +6,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
 from models.account import Account
-from app.keyboards.start_menu import get_main_menu
+from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
-from app.keyboards.start_menu import get_skip_initial_amount_keyboard
-from app.keyboards.start_menu import get_accounts_keyboard
+from app.keyboards.inline import get_skip_initial_amount_keyboard
+from app.keyboards.inline import get_accounts_keyboard
 
 router = Router()
 

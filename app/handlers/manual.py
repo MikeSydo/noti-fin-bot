@@ -1,7 +1,7 @@
 from aiogram import Router
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message
-from app.keyboards.start_menu import get_main_menu
+from app.keyboards.reply import get_main_menu
 
 router = Router()
 
