@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from models.account import Account
 from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
-from app.keyboards.inline import get_skip_initial_amount_keyboard
+from app.keyboards.inline import get_skip_attribute_keyboard
 from app.keyboards.inline import get_accounts_keyboard
 
 router = Router()
@@ -42,11 +42,11 @@ async def handle_account_name_input(message: Message, state: FSMContext):
     await message.answer(
         f'Назва: {name}\nВведіть початкову суму або натисніть пропустити.',
         parse_mode="Markdown",
-        reply_markup=await get_skip_initial_amount_keyboard(),
+        reply_markup=await get_skip_attribute_keyboard(),
     )
     await state.set_state(AddAccountsState.waiting_for_initial_amount)
 
-@router.callback_query(F.data == 'skip_initial_amount', AddAccountsState.waiting_for_initial_amount)
+@router.callback_query(F.data == 'skip_attribute', AddAccountsState.waiting_for_initial_amount)
 async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext):
     """Handle skip initial amount button."""
     await callback.answer()  # remove loading animation

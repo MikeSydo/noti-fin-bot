@@ -37,6 +37,32 @@ class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Account", call_kwargs["properties"])
 
     @patch('services.notion_writer.AsyncClient')
+    async def test_add_account_success_skip_attribute(self, MockAsyncClient):
+        """Test for successful addition of an account without an initial amount (skipped)"""
+        mock_client_instance = MockAsyncClient.return_value
+        mock_client_instance.pages.create = AsyncMock(return_value={})
+        
+        writer = NotionWriter()
+        writer.client = mock_client_instance
+        writer.accounts_db_id = "test_db_id"
+
+        # Create test account object without initial amount
+        test_account = Account(name="Test Account", initial_amount=None)
+
+        # Call function
+        result = await writer.add_account(test_account)
+
+        # Assertions
+        self.assertTrue(result)
+        mock_client_instance.pages.create.assert_called_once()
+        call_kwargs = mock_client_instance.pages.create.call_args.kwargs
+        
+        # Check that properties correctly have None for Initial Amount
+        properties = call_kwargs["properties"]
+        self.assertIn("Initial Amount", properties)
+        self.assertIsNone(properties["Initial Amount"]["number"])
+
+    @patch('services.notion_writer.AsyncClient')
     async def test_add_account_failure(self, MockAsyncClient):
         """Test for handling errors during account addition to Notion"""
         # Setup mock to simulate Notion connection error

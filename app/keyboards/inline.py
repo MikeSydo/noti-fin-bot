@@ -3,10 +3,10 @@ from aiogram.types import (
     InlineKeyboardButton,
 )
 
-async def get_skip_initial_amount_keyboard() -> InlineKeyboardMarkup:
+async def get_skip_attribute_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Пропустити', callback_data='skip_initial_amount')]
+            [InlineKeyboardButton(text='Пропустити', callback_data='skip_attribute')]
         ],
     )
 
