@@ -21,7 +21,7 @@ class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
         
         writer = NotionWriter()
         writer.client = mock_client_instance  # Replace client with mock
-        writer.account_db_id = "test_db_id"
+        writer.accounts_db_id = "test_db_id"
 
         # Create test account object
         test_account = Account(name="Test Account", initial_amount=Decimal("150.50"))
@@ -112,7 +112,7 @@ class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
         
         writer = NotionWriter()
         writer.client = mock_client_instance
-        writer.account_db_id = "test_db_id"
+        writer.accounts_db_id = "test_db_id"
 
         # Call function to get accounts
         accounts = await writer.get_accounts()

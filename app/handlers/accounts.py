@@ -21,12 +21,8 @@ class AddAccountsState(StatesGroup):
     waiting_for_initial_amount = State()
 
 @router.message(F.text == 'Додати акаунт')
-async def btn_add_account(message: Message, state: FSMContext):
-    """Reply keyboard: Add account button."""
-    await start_add_account(message, state)
-
 async def start_add_account(message: Message, state: FSMContext):
-    """Common logic to add account in notion db."""
+    """Start logic to add account in notion db."""
     await state.clear()
     await message.answer(
         'Введіть назву акаунта.',
@@ -44,7 +40,7 @@ async def handle_account_name_input(message: Message, state: FSMContext):
 
     await state.update_data(name=name)
     await message.answer(
-        'Назва: {name}\nВведіть початкову суму або натисніть пропустити.'.format(name=name),
+        f'Назва: {name}\nВведіть початкову суму або натисніть пропустити.',
         parse_mode="Markdown",
         reply_markup=await get_skip_initial_amount_keyboard(),
     )
@@ -55,7 +51,7 @@ async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext)
     """Handle skip initial amount button."""
     await callback.answer()  # remove loading animation
     await state.update_data(initial_amount=None)
-    await callback.message.answer('Початкова сума: None')
+    await callback.message.answer('Початкова сума: не вказано')
     await save_account(callback.message, state)
 
 @router.message(AddAccountsState.waiting_for_initial_amount)
@@ -72,7 +68,7 @@ async def handle_initial_amount_input(message: Message, state: FSMContext):
 
     await state.update_data(initial_amount=str(initial_amount))
     await message.answer(
-        'Початкова сума: {initial_amount}'.format(initial_amount=f"{initial_amount:.2f}"),
+        f'Початкова сума: {initial_amount:.2f}',
         parse_mode="Markdown",
     )
     await save_account(message, state)
@@ -92,8 +88,9 @@ async def save_account(message: Message, state: FSMContext):
         success = await notion_writer.add_account(account)
 
         if success:
+            display_amount = f"{account.initial_amount:.2f}" if account.initial_amount is not None else "0.00"
             await message.answer(
-                f"Акаунт збережено!\n\n{account.name}\n{account.initial_amount}",
+                f"Акаунт збережено!\n\n**{account.name}**\nПочаткова сума: {display_amount}",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )
@@ -115,12 +112,8 @@ class DeleteAccountsState(StatesGroup):
     waiting_for_selection = State()
 
 @router.message(F.text == 'Видалити акаунт')
-async def btn_delete_account(message: Message, state: FSMContext):
-    """Reply keyboard: Delete account button."""
-    await start_delete_account(message, state)
-
 async def start_delete_account(message: Message, state: FSMContext):
-    """Common logic to delete account in notion db."""
+    """Start logic to delete account in notion db."""
     await state.clear()
     accounts = await notion_writer.get_accounts()
     if not accounts:
@@ -129,7 +122,7 @@ async def start_delete_account(message: Message, state: FSMContext):
             reply_markup=await get_main_menu(),
         )
         return
-    await state.update_data(accounts=accounts)
+    
     await message.answer(
         'Виберіть акаунт для видалення.',
         parse_mode="Markdown",
@@ -139,40 +132,33 @@ async def start_delete_account(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith('select_account_'), DeleteAccountsState.waiting_for_selection)
 async def process_delete_account_selection(callback: CallbackQuery, state: FSMContext):
-    """Handle account selection for deletion."""
+    """Handle account selection and deletion."""
     await callback.answer()
     account_id = callback.data.replace('select_account_', '')
-    await state.update_data(account_id=account_id)
-    await callback.message.edit_text("Видалення...", reply_markup=None)
-    await delete_account(callback.message, state)
-
-async def delete_account(message: Message, state: FSMContext):
-    """Delete account from Notion."""
-    data = await state.get_data()
     await state.clear()
+    
+    await callback.message.edit_text("Видалення...", reply_markup=None)
 
     try:
-        account_id = data.get("account_id")
-
         success = await notion_writer.delete_account(account_id)
         
-        await message.delete() # delete message "Видалення..."
+        await callback.message.delete() # delete message "Видалення..."
 
         if success:
-            await message.answer(
-                f"Акаунт видалено!",
+            await callback.message.answer(
+                "Акаунт видалено!",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )
         else:
-            await message.answer(
+            await callback.message.answer(
                 'Не вдалось видалити. Перевірте Notion налаштування.',
                 reply_markup=await get_main_menu()
             )
 
     except Exception as e:
         logger.error(f"Failed to delete account: {e}")
-        await message.answer(
+        await callback.message.answer(
             'Виникла помилка при видаленні.',
             reply_markup=await get_main_menu(),
         )
