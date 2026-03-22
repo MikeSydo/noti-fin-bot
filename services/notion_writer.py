@@ -1,7 +1,4 @@
 import logging
-from datetime import date, datetime
-from decimal import Decimal
-from typing import Optional
 
 from notion_client import Client
 from config import settings
@@ -25,10 +22,7 @@ class NotionWriter:
             True if successful, False otherwise.
         """
         try:
-            properties = self.build_account_properties(
-                name=account.name,
-                initial_amount=account.initial_amount
-            )
+            properties = account.to_notion_properties()
             self.client.pages.create(
                 parent={"database_id": self.account_db_id},
                 properties=properties,
@@ -37,23 +31,5 @@ class NotionWriter:
         except Exception as e:
             logger.error(f"Failed to add manual expense to Notion: {e}")
             return False
-
-    @staticmethod
-    def build_account_properties(
-            name: str,
-            initial_amount: Optional[Decimal] = None
-    ) -> dict:
-        """Build properties dict for Notion API."""
-        properties = {
-            "Account": {
-                "title": [{"text": {"content": name}}],
-            },
-            "Initial Amount": {
-                "number": float(initial_amount) if initial_amount is not None else None,
-            }
-        }
-
-        return properties
-
 
 notion_writer = NotionWriter()

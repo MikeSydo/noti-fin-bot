@@ -1,3 +1,5 @@
+import logging 
+
 from aiogram import Router, F
 from aiogram.types import Message, message
 from aiogram.fsm.state import State, StatesGroup
@@ -8,6 +10,8 @@ from app.keyboards.start_menu import get_main_menu
 from services.notion_writer import notion_writer
 
 router = Router()
+
+logger = logging.getLogger(__name__)
 
 class AddAccountsState(StatesGroup):
     """FSM state for accounts."""
@@ -90,6 +94,7 @@ async def save_account(message: Message, state: FSMContext):
             )
 
     except Exception as e:
+        logger.error(f"Failed to save account: {e}")
         await message.answer(
             'Виникла помилка при збереженні.',
             reply_markup=await get_main_menu(),
