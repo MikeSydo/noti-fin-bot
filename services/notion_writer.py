@@ -1,16 +1,27 @@
+import uuid
 from decimal import Decimal
 import logging
 
-from notion_client import Client
+from notion_client import AsyncClient
 from config import settings
 from models.account import Account
 
 logger = logging.getLogger(__name__)
 
+def format_notion_id(notion_id: str) -> str:
+    """Format a Notion ID to include hyphens if it doesn't already."""
+    if "-" not in notion_id and len(notion_id) == 32:
+        return str(uuid.UUID(notion_id))
+    return notion_id
+
 class NotionWriter:
     def __init__(self):
-        self.client = Client(auth=settings.NOTION_API_KEY)
-        self.account_db_id = settings.NOTION_ACCOUNTS_DB_ID
+        self.client = AsyncClient(
+            auth=settings.NOTION_API_KEY,
+            notion_version="2022-06-28"
+        )
+        # Fix: Ensure db_id is hyphenated for custom request path
+        self.account_db_id = format_notion_id(settings.NOTION_ACCOUNTS_DB_ID)
 
     async def add_account(self, account: Account) -> bool:
         """
@@ -24,7 +35,7 @@ class NotionWriter:
         """
         try:
             properties = account.to_notion_properties()
-            self.client.pages.create(
+            await self.client.pages.create(
                 parent={"database_id": self.account_db_id},
                 properties=properties,
             )
@@ -41,16 +52,20 @@ class NotionWriter:
             List of accounts.
         """
         try:
-            response = self.client.databases.query(
-                database_id=self.account_db_id,
+            # Using request directly since notion-client 3.0.0 removed database.query endpoint helper
+            response = await self.client.request(
+                path=f"databases/{self.account_db_id}/query",
+                method="POST",
+                body={}
             )
             accounts = []
-            for page in response["results"]:
+            for page in response.get("results", []):
                 properties = page["properties"]
+                title_parts = properties["Account"]["title"]
                 account = Account(
                     id=page["id"],
-                    name=properties["Account"]["title"][0]["text"]["content"],
-                    initial_amount=Decimal(properties["Initial Amount"]["number"]),
+                    name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Account",
+                    initial_amount=Decimal(str(properties["Initial Amount"]["number"] or 0)),
                 )
                 accounts.append(account)
             return accounts
@@ -69,15 +84,9 @@ class NotionWriter:
             True if successful, False otherwise.
         """
         try:
-            self.client.pages.update(
+            await self.client.pages.update(
                 page_id=account_id,
-                properties={
-                    "Status": {
-                        "select": {
-                            "name": "Deleted"
-                        }
-                    }
-                },
+                archived=True
             )
             return True
         except Exception as e:

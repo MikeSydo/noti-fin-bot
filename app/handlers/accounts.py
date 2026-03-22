@@ -122,7 +122,6 @@ async def btn_delete_account(message: Message, state: FSMContext):
 async def start_delete_account(message: Message, state: FSMContext):
     """Common logic to delete account in notion db."""
     await state.clear()
-    await message.answer('Завантаження...')
     accounts = await notion_writer.get_accounts()
     if not accounts:
         await message.answer(
@@ -130,7 +129,6 @@ async def start_delete_account(message: Message, state: FSMContext):
             reply_markup=await get_main_menu(),
         )
         return
-    await message.delete()
     await state.update_data(accounts=accounts)
     await message.answer(
         'Виберіть акаунт для видалення.',
@@ -138,6 +136,15 @@ async def start_delete_account(message: Message, state: FSMContext):
         reply_markup=await get_accounts_keyboard(accounts),
     )
     await state.set_state(DeleteAccountsState.waiting_for_selection)
+
+@router.callback_query(F.data.startswith('select_account_'), DeleteAccountsState.waiting_for_selection)
+async def process_delete_account_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle account selection for deletion."""
+    await callback.answer()
+    account_id = callback.data.replace('select_account_', '')
+    await state.update_data(account_id=account_id)
+    await callback.message.edit_text("Видалення...", reply_markup=None)
+    await delete_account(callback.message, state)
 
 async def delete_account(message: Message, state: FSMContext):
     """Delete account from Notion."""
@@ -148,6 +155,8 @@ async def delete_account(message: Message, state: FSMContext):
         account_id = data.get("account_id")
 
         success = await notion_writer.delete_account(account_id)
+        
+        await message.delete() # delete message "Видалення..."
 
         if success:
             await message.answer(

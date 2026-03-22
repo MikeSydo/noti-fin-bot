@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 class Account(BaseModel):
+    id: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
     #decription names should be like attributes names in notion db
     name: str = Field(..., description='Account')
