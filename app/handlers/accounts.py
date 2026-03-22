@@ -9,6 +9,7 @@ from models.account import Account
 from app.keyboards.start_menu import get_main_menu
 from services.notion_writer import notion_writer
 from app.keyboards.start_menu import get_skip_initial_amount_keyboard
+from app.keyboards.start_menu import get_accounts_keyboard
 
 router = Router()
 
@@ -106,5 +107,63 @@ async def save_account(message: Message, state: FSMContext):
         logger.error(f"Failed to save account: {e}")
         await message.answer(
             'Виникла помилка при збереженні.',
+            reply_markup=await get_main_menu(),
+        )
+
+class DeleteAccountsState(StatesGroup):
+    """FSM state for accounts."""
+    waiting_for_selection = State()
+
+@router.message(F.text == 'Видалити акаунт')
+async def btn_delete_account(message: Message, state: FSMContext):
+    """Reply keyboard: Delete account button."""
+    await start_delete_account(message, state)
+
+async def start_delete_account(message: Message, state: FSMContext):
+    """Common logic to delete account in notion db."""
+    await state.clear()
+    await message.answer('Завантаження...')
+    accounts = await notion_writer.get_accounts()
+    if not accounts:
+        await message.answer(
+            'Немає акаунтів для видалення.',
+            reply_markup=await get_main_menu(),
+        )
+        return
+    await message.delete()
+    await state.update_data(accounts=accounts)
+    await message.answer(
+        'Виберіть акаунт для видалення.',
+        parse_mode="Markdown",
+        reply_markup=await get_accounts_keyboard(accounts),
+    )
+    await state.set_state(DeleteAccountsState.waiting_for_selection)
+
+async def delete_account(message: Message, state: FSMContext):
+    """Delete account from Notion."""
+    data = await state.get_data()
+    await state.clear()
+
+    try:
+        account_id = data.get("account_id")
+
+        success = await notion_writer.delete_account(account_id)
+
+        if success:
+            await message.answer(
+                f"Акаунт видалено!",
+                parse_mode="Markdown",
+                reply_markup=await get_main_menu(),
+            )
+        else:
+            await message.answer(
+                'Не вдалось видалити. Перевірте Notion налаштування.',
+                reply_markup=await get_main_menu()
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to delete account: {e}")
+        await message.answer(
+            'Виникла помилка при видаленні.',
             reply_markup=await get_main_menu(),
         )

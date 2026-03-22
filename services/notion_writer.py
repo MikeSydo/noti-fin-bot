@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 
 from notion_client import Client
@@ -30,6 +31,57 @@ class NotionWriter:
             return True
         except Exception as e:
             logger.error(f"Failed to add manual expense to Notion: {e}")
+            return False
+
+    async def get_accounts(self) -> list[Account]:
+        """
+        Get all accounts from Notion DB.
+
+        Returns:
+            List of accounts.
+        """
+        try:
+            response = self.client.databases.query(
+                database_id=self.account_db_id,
+            )
+            accounts = []
+            for page in response["results"]:
+                properties = page["properties"]
+                account = Account(
+                    id=page["id"],
+                    name=properties["Account"]["title"][0]["text"]["content"],
+                    initial_amount=Decimal(properties["Initial Amount"]["number"]),
+                )
+                accounts.append(account)
+            return accounts
+        except Exception as e:
+            logger.error(f"Failed to get accounts from Notion: {e}")
+            return []
+
+    async def delete_account(self, account_id: str) -> bool:
+        """
+        Deleting account in Notion DB.
+
+        Args:
+            account_id: Account ID.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            self.client.pages.update(
+                page_id=account_id,
+                properties={
+                    "Status": {
+                        "select": {
+                            "name": "Deleted"
+                        }
+                    }
+                },
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete account from Notion: {e}")
             return False
 
 notion_writer = NotionWriter()
