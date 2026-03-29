@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from decimal import Decimal
 from typing import Optional
 from datetime import datetime
+from .category import Category
+from .account import Account
 
 class Expense(BaseModel):
     id: Optional[str] = None
@@ -10,14 +12,14 @@ class Expense(BaseModel):
     name: str = Field(..., description='Expense')
     amount: Decimal = Field(gte=0, description="Amount")
     date: datetime = Field(..., description="Date")
-    account: str = Field(..., description="Account")
-    category: str = Field(..., description="Category")
+    account_id: str = Field(...)
+    category_id: str = Field(...)
 
     def to_notion_properties(self) -> dict:
         return {
             "Expense": {"title": [{"text": {"content": self.name}}]},
             "Amount": {"number": float(self.amount)},
             "Date": {"date": {"start": self.date.isoformat()}},
-            "Account": {"relation": [{"id": self.account}]},
-            "Category": {"relation": [{"id": self.category}]},
+            "Account": {"relation": [{"id": self.account_id}]},
+            "Category": {"relation": [{"id": self.category_id}]},
         }

@@ -7,11 +7,10 @@ from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
-from models.account import Account
-from models.expense import Expense
+from models.expenses import Expense
 from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
-from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard
+from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard
 
 router = Router()
 
@@ -82,7 +81,7 @@ async def hande_today_date(callback: CallbackQuery, state: FSMContext):
     
     await callback.message.answer(f'Дата: {now.strftime("%d.%m.%Y %H:%M")}')
     
-    await _ask_for_account(callback.message, state)
+    await ask_for_account(callback.message, state)
 
 @router.message(AddExpenseState.waiting_for_date)
 async def handle_date_input(message: Message, state: FSMContext):
@@ -127,5 +126,63 @@ async def process_account_selection(callback: CallbackQuery, state: FSMContext):
 
 async def ask_for_category(message: Message, state: FSMContext):
     """Ask for category."""
-    #to complete this func, need to add categories
-    pass
+    categories = await notion_writer.get_categories()
+    if not categories:
+        await message.answer('У вас ще немає категорій. Спочатку додайте категорії у Notion.')
+        await state.clear()
+        return
+
+    await message.answer(
+        'Виберіть категорію витрати:',
+        reply_markup=await get_categories_keyboard(categories)
+    )
+
+    await state.set_state(AddExpenseState.waiting_for_category)
+
+
+@router.callback_query(F.data.startswith('select_category_'), AddExpenseState.waiting_for_category)
+async def process_category_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle category selection."""
+    await callback.answer()
+    category_id = callback.data.replace('select_category_', '')
+    await state.update_data(category_id=category_id)
+
+    await save_expense(callback.message, state)
+
+async def save_expense(message: Message, state: FSMContext):
+    """Save expense to Notion."""
+    data = await state.get_data()
+    await state.clear()
+
+    try:
+        amount = data.get("amount")
+        expense = Expense(
+            name=data["name"],
+            amount=Decimal(amount) if amount is not None else None,
+            date=data["date"],
+            account_id=data["account_id"],
+            category_id=data["category_id"],
+        )
+
+        success = await notion_writer.add_expense(expense)
+
+        if success:
+            display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "0.00"
+            await message.answer(
+                f"Витрату збережено!\n\n**{expense.name}**\nСума: {display_amount}\nДата: {expense.date}\n"
+                f"Акаунт: {expense.account_id}\nКатегорія: {expense.category_id}",
+                parse_mode="Markdown",
+                reply_markup=await get_main_menu(),
+            )
+        else:
+            await message.answer(
+                'Не вдалось зберегти. Перевірте Notion налаштування.',
+                reply_markup=await get_main_menu()
+            )
+
+    except Exception as e:
+        logger.error(f"Failed to save account: {e}")
+        await message.answer(
+            'Виникла помилка при збереженні.',
+            reply_markup=await get_main_menu(),
+        )

@@ -5,6 +5,7 @@ import logging
 from notion_client import AsyncClient
 from config import settings
 from models.account import Account
+from models.category import Category
 from models.expenses import Expense
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class NotionWriter:
         )
         self.accounts_db_id = format_notion_id(settings.NOTION_ACCOUNTS_DB_ID)
         self.expenses_db_id = format_notion_id(settings.NOTION_EXPENSES_DB_ID)
+        self.categories_db_id = format_notion_id(settings.NOTION_CATEGORIES_DB_ID)
 
     async def add_account(self, account: Account) -> bool:
         """
@@ -116,6 +118,32 @@ class NotionWriter:
             logger.error(f"Failed to add expense to Notion: {e}")
             return False
 
-    #TODO: add func get categories
+    async def get_categories(self) -> list[Category]:
+        """
+        Get all categories from Notion DB.
+
+        Returns:
+            List of categories.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.categories_db_id}/query",
+                method="POST",
+                body={}
+            )
+            categories = []
+            for page in response.get("results", []):
+                properties = page["properties"]
+                title_parts = properties["Category"]["title"]
+                category = Category(
+                    id=page["id"],
+                    name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Category",
+                    monthly_budget=Decimal(str(properties["Monthly Budget"]["number"] or 0)),
+                )
+                categories.append(category)
+            return categories
+        except Exception as e:
+            logger.error(f"Failed to get categories from Notion: {e}")
+            return []
 
 notion_writer = NotionWriter()

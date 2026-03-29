@@ -3,7 +3,7 @@ import logging
 
 from aiogram import Dispatcher, Bot
 from config import settings
-from app.handlers import manual, receipt, accounts
+from app.handlers import manual, receipt, accounts, expenses
 from aiogram.types import BotCommand
 
 from models import account
@@ -25,6 +25,7 @@ async def main():
     dp.include_router(manual.router)
     dp.include_router(receipt.router)
     dp.include_router(accounts.router)
+    dp.include_router(expenses.router)
 
     await set_bot_commands()
 

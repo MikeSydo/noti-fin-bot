@@ -2,6 +2,9 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from models.account import Account
+from models.category import Category
+
 
 async def get_skip_attribute_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -27,3 +30,14 @@ async def get_today_date_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text='Сьогоднішня дата', callback_data='today_date')]
         ]
     )
+
+async def get_categories_keyboard(categories: list[Category]) -> InlineKeyboardMarkup:
+    keyboard = []
+    for category in categories:
+        keyboard.append([
+            InlineKeyboardButton(
+                text=f"{category.name} ({category.monthly_budget or 0:.2f})",
+                callback_data=f"select_category_{category.id}"
+            )
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
