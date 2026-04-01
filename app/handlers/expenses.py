@@ -105,13 +105,14 @@ async def ask_for_account(message: Message, state: FSMContext):
     """Ask for account."""
     accounts = await notion_writer.get_accounts()
     if not accounts:
-        await message.answer('У вас ще немає акаунтів. Спочатку додайте акаунт у Notion.')
-        await state.clear()
+        await message.answer('У вас ще немає акаунтів. Акаунт буде пропущено.')
+        await state.update_data(account=None)
+        await ask_for_category(message, state)
         return
         
     await message.answer(
         'Виберіть акаунт, з якого була витрата:',
-        reply_markup=await get_accounts_keyboard(accounts)
+        reply_markup=await get_accounts_keyboard(accounts, include_skip=True)
     )
     await state.set_state(AddExpenseState.waiting_for_account)
 
@@ -125,17 +126,25 @@ async def process_account_selection(callback: CallbackQuery, state: FSMContext):
     
     await ask_for_category(callback.message, state)
 
+@router.callback_query(F.data == 'skip_account', AddExpenseState.waiting_for_account)
+async def process_skip_account(callback: CallbackQuery, state: FSMContext):
+    """Handle skipping account selection."""
+    await callback.answer()
+    await state.update_data(account=None)
+    await ask_for_category(callback.message, state)
+
 async def ask_for_category(message: Message, state: FSMContext):
     """Ask for category."""
     categories = await notion_writer.get_categories()
     if not categories:
-        await message.answer('У вас ще немає категорій. Спочатку додайте категорії у Notion.')
-        await state.clear()
+        await message.answer('У вас ще немає категорій. Категорію буде пропущено.')
+        await state.update_data(category=None)
+        await save_expense(message, state)
         return
 
     await message.answer(
         'Виберіть категорію витрати:',
-        reply_markup=await get_categories_keyboard(categories)
+        reply_markup=await get_categories_keyboard(categories, include_skip=True)
     )
 
     await state.set_state(AddExpenseState.waiting_for_category)
@@ -146,8 +155,16 @@ async def process_category_selection(callback: CallbackQuery, state: FSMContext)
     """Handle category selection."""
     await callback.answer()
     category_id = callback.data.replace('select_category_', '')
-    await state.update_data(category_id=category_id)
+    category = await notion_writer.get_category(category_id)
+    await state.update_data(category=category)
 
+    await save_expense(callback.message, state)
+
+@router.callback_query(F.data == 'skip_category', AddExpenseState.waiting_for_category)
+async def process_skip_category(callback: CallbackQuery, state: FSMContext):
+    """Handle skipping category selection."""
+    await callback.answer()
+    await state.update_data(category=None)
     await save_expense(callback.message, state)
 
 async def save_expense(message: Message, state: FSMContext):
@@ -158,23 +175,24 @@ async def save_expense(message: Message, state: FSMContext):
     try:
         amount = data.get("amount")
         account = data.get("account")
+        category = data.get("category")
         expense = Expense(
             name=data["name"],
             amount=Decimal(amount) if amount is not None else None,
             date=data["date"],
             account=account if account is not None else None,
-            category_id=data["category_id"],
+            category=category if category is not None else None
         )
 
         success = await notion_writer.add_expense(expense)
 
         if success:
-            display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "None"
-            account_name = expense.account.name if expense.account is not None else "None"
+            display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "Пропущено"
+            account_name = expense.account.name if expense.account is not None else "Пропущено"
+            category_name = expense.category.name if expense.category is not None else "Пропущено"
             await message.answer(
                 f"Витрату збережено!\n\n**{expense.name}**\nСума: {display_amount}\nДата: {expense.date}\n"
-                f"Акаунт: {account_name}",
-                f"\nКатегорія: {expense.category_id}",
+                f"Акаунт: {account_name}\nКатегорія: {category_name}",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )

@@ -11,7 +11,9 @@ class Category(BaseModel):
     monthly_budget: Optional[Decimal] | None = Field(default=None, ge=0, description="Monthly Budget")
 
     def to_notion_properties(self) -> dict:
-        return {
+        properties = {
             "Category": {"title": [{"text": {"content": self.name}}]},
-            "Monthly Budget": {"number": float(self.monthly_budget) if self.monthly_budget else None},
         }
+        if self.monthly_budget is not None:
+            properties["Monthly Budget"] = {"number": float(self.monthly_budget)}
+        return properties

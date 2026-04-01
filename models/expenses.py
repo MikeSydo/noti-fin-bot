@@ -12,14 +12,19 @@ class Expense(BaseModel):
     name: str = Field(..., description='Expense')
     amount: Decimal = Field(ge=0, description="Amount")
     date: datetime = Field(..., description="Date")
-    account: Account | None = Field(...)
-    category_id: str = Field(...)
+    account: Optional[Account] | None = Field(default=None)
+    category: Optional[Category] | None = Field(default=None)
 
     def to_notion_properties(self) -> dict:
-        return {
+        properties = {
             "Expense": {"title": [{"text": {"content": self.name}}]},
             "Amount": {"number": float(self.amount)},
             "Date": {"date": {"start": self.date.isoformat()}},
-            "Account": {"relation": [{"id": self.account.id}]},
-            "Category": {"relation": [{"id": self.category_id}]},
         }
+        if self.account and self.account.id:
+            properties["Account"] = {"relation": [{"id": self.account.id}]}
+        
+        if self.category and self.category.id:
+            properties["Category"] = {"relation": [{"id": self.category.id}]}
+            
+        return properties

@@ -10,8 +10,9 @@ class Account(BaseModel):
     initial_amount: Optional[Decimal] | None = Field(default=None, ge=0, description="Initial Amount")
 
     def to_notion_properties(self) -> dict:
-        return {
+        properties = {
             "Account": {"title": [{"text": {"content": self.name}}]},
-            "Initial Amount": {"number": float(self.initial_amount) if self.initial_amount else None},
         }
-    
+        if self.initial_amount is not None:
+            properties["Initial Amount"] = {"number": float(self.initial_amount)}
+        return properties

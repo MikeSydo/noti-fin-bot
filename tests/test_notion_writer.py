@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from models.account import Account
 from models.expenses import Expense
+from models.category import Category
 from services.notion_writer import NotionWriter
 
 @pytest.fixture
@@ -88,6 +89,17 @@ async def test_add_account_success(mock_writer, expected_name, expected_amount):
     assert account_title == expected_name
 
 @pytest.mark.asyncio
+async def test_add_account_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(side_effect=Exception("API Error"))
+    
+    test_account = Account(name="ErrorBank", initial_amount=Decimal("100.00"))
+    result = await writer.add_account(test_account)
+    
+    assert result is False
+    mock_client.pages.create.assert_called_once()
+
+@pytest.mark.asyncio
 async def test_delete_account_success(mock_writer, mock_accounts_response):
     writer, mock_client = mock_writer
     mock_client.pages.update = AsyncMock(return_value={})
@@ -99,6 +111,16 @@ async def test_delete_account_success(mock_writer, mock_accounts_response):
         page_id="uuid_account_1",
         archived=True
     )
+
+@pytest.mark.asyncio
+async def test_delete_account_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.update = AsyncMock(side_effect=Exception("API Error"))
+
+    result = await writer.delete_account("uuid_account_1")
+    
+    assert result is False
+    mock_client.pages.update.assert_called_once()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("account_id, expected_name, expected_amount", [
@@ -114,6 +136,16 @@ async def test_get_account_success(mock_writer, mock_accounts_response, account_
     assert account.id == account_id
     assert account.name == expected_name
     assert account.initial_amount == expected_amount
+
+@pytest.mark.asyncio
+async def test_get_account_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    account = await writer.get_account("fake_uuid")
+    
+    assert account is None
+    mock_client.request.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_get_accounts_success(mock_writer, mock_accounts_response):
@@ -135,6 +167,16 @@ async def test_get_accounts_success(mock_writer, mock_accounts_response):
     )
 
 @pytest.mark.asyncio
+async def test_get_accounts_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    accounts = await writer.get_accounts()
+    
+    assert accounts == []
+    mock_client.request.assert_called_once()
+
+@pytest.mark.asyncio
 async def test_get_categories_success(mock_writer, mock_categories_response):
     writer, mock_client = mock_writer
     mock_client.request = AsyncMock(return_value=mock_categories_response)
@@ -147,20 +189,32 @@ async def test_get_categories_success(mock_writer, mock_categories_response):
     assert categories[1].id == "uuid_category_2"
     assert categories[1].monthly_budget is None
 
+@pytest.mark.asyncio
+async def test_get_categories_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    categories = await writer.get_categories()
+    
+    assert categories == []
+    mock_client.request.assert_called_once()
 
 @pytest.mark.asyncio
-async def test_add_expense_success(mock_writer):
+@pytest.mark.parametrize("account_input, category_input", [
+    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50")), Category(id="cat_1", name="Test Category", monthly_budget=Decimal("5000.00"))),
+    (None, None),
+])
+async def test_add_expense_success(mock_writer, account_input, category_input):
     writer, mock_client = mock_writer
     mock_client.pages.create = AsyncMock(return_value={})
     writer.expenses_db_id = "test_expenses_db_id"
-
-    test_account = Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50"))
+    
     test_expense = Expense(
         name="Groceries",
         amount=Decimal("500.00"),
         date=datetime.now(),
-        account=test_account,
-        category_id="cat_1"
+        account=account_input,
+        category=category_input
     )
 
     result = await writer.add_expense(test_expense)
@@ -171,3 +225,25 @@ async def test_add_expense_success(mock_writer):
     call_kwargs = mock_client.pages.create.call_args.kwargs
     assert call_kwargs["parent"] == {"database_id": "test_expenses_db_id"}
     assert call_kwargs["properties"] == test_expense.to_notion_properties()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("account_input, category_input", [
+    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50")), Category(id="cat_1", name="Test Category", monthly_budget=Decimal("5000.00"))),
+    (None, None),
+])
+async def test_add_expense_failure(mock_writer, account_input, category_input):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(side_effect=Exception("API Error"))
+    
+    test_expense = Expense(
+        name="Groceries",
+        amount=Decimal("500.00"),
+        date=datetime.now(),
+        account=account_input,
+        category=category_input
+    )
+
+    result = await writer.add_expense(test_expense)
+    
+    assert result is False
+    mock_client.pages.create.assert_called_once()
