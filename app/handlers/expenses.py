@@ -250,21 +250,33 @@ async def handle_expense_name_input(message: Message, state: FSMContext):
         await state.update_data(name=name, id_list=id_list)
         await show_expenses(message, state)
 
-async def show_expenses(message: Message, state: FSMContext):
+async def show_expenses(message: Message, state: FSMContext, page: int = 0, edit_message: bool = False):
     data = await state.get_data()
     id_list = data.get("id_list", [])
     expenses = await notion_writer.get_expenses(id_list)
     if not expenses:
-        await message.answer('У вас ще немає витрат.')
+        if edit_message:
+            await message.edit_text('У вас ще немає витрат.')
+        else:
+            await message.answer('У вас ще немає витрат.')
         await state.clear()
         return
 
-    await message.answer(
-        'Знайдено більше однієї витрати за цим ім\'ям виберіть за датою:',
-        reply_markup=await get_expenses_keyboard(expenses)
-    )
+    text = 'Знайдено більше однієї витрати за цим ім\'ям виберіть за датою:'
+    keyboard = await get_expenses_keyboard(expenses, page=page)
+    
+    if edit_message:
+        await message.edit_text(text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)
     await state.set_state(DeleteExpenseState.waiting_for_selection)
 
+@router.callback_query(F.data.startswith('exp_page_'), DeleteExpenseState.waiting_for_selection)
+async def process_expense_page_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle pagination for expenses list."""
+    await callback.answer()
+    page = int(callback.data.replace('exp_page_', ''))
+    await show_expenses(callback.message, state, page=page, edit_message=True)
 
 @router.callback_query(F.data.startswith('select_expense_'), DeleteExpenseState.waiting_for_selection)
 async def process_expense_selection(callback: CallbackQuery, state: FSMContext):
