@@ -140,7 +140,7 @@ async def process_delete_account_selection(callback: CallbackQuery, state: FSMCo
     await callback.message.edit_text("Видалення...", reply_markup=None)
 
     try:
-        success = await notion_writer.delete_account(account_id)
+        success = await notion_writer.delete_page(account_id)
         
         await callback.message.delete() # delete message "Видалення..."
 

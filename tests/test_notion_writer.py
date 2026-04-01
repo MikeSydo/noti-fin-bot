@@ -181,7 +181,7 @@ async def test_delete_account_success(mock_writer, mock_accounts_response):
     writer, mock_client = mock_writer
     mock_client.pages.update = AsyncMock(return_value={})
 
-    result = await writer.delete_account("uuid_account_1")
+    result = await writer.delete_page("uuid_account_1")
 
     assert result is True
     mock_client.pages.update.assert_called_once_with(
@@ -194,8 +194,8 @@ async def test_delete_account_failure(mock_writer):
     writer, mock_client = mock_writer
     mock_client.pages.update = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await writer.delete_account("uuid_account_1")
-    
+    result = await writer.delete_page("uuid_account_1")
+
     assert result is False
     mock_client.pages.update.assert_called_once()
 
@@ -390,7 +390,7 @@ async def test_delete_expense_success(mock_writer):
     writer, mock_client = mock_writer
     mock_client.pages.update = AsyncMock(return_value={})
 
-    result = await writer.delete_expense("uuid_expense_1")
+    result = await writer.delete_page("uuid_expense_1")
 
     assert result is True
     mock_client.pages.update.assert_called_once_with(
@@ -403,7 +403,7 @@ async def test_delete_expense_failure(mock_writer):
     writer, mock_client = mock_writer
     mock_client.pages.update = AsyncMock(side_effect=Exception("API Error"))
 
-    result = await writer.delete_expense("uuid_expense_1")
+    result = await writer.delete_page("uuid_expense_1")
     
     assert result is False
     mock_client.pages.update.assert_called_once()

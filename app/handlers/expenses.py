@@ -233,7 +233,12 @@ async def handle_expense_name_input(message: Message, state: FSMContext):
         await message.answer('Назва не може бути порожньою! Дію скасовано.')
         return
 
+    searching_msg = await message.answer("Триває пошук...")
+
     id_list = await notion_writer.find_expenses(name)
+    
+    await searching_msg.delete()
+
     if not id_list:
         await message.answer('Витрату з такою назвою не знайдено.')
         return
@@ -277,8 +282,12 @@ async def process_delete_expense(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
 
+    deleting_msg = await message.answer("Видалення...", reply_markup=None)
+
     try:
-        success = await notion_writer.delete_expense(data['id'])
+        success = await notion_writer.delete_page(data['id'])
+
+        await deleting_msg.delete()
 
         if success:
             await message.answer(

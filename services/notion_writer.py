@@ -77,24 +77,24 @@ class NotionWriter:
             logger.error(f"Failed to get accounts from Notion: {e}")
             return []
 
-    async def delete_account(self, account_id: str) -> bool:
+    async def delete_page(self, page_id: str) -> bool:
         """
-        Deleting account in Notion DB.
+        Archive (delete) a page in Notion DB.
 
         Args:
-            account_id: Account ID.
+            page_id: The ID of the page (account, expense, etc.) to delete.
 
         Returns:
             True if successful, False otherwise.
         """
         try:
             await self.client.pages.update(
-                page_id=account_id,
+                page_id=page_id,
                 archived=True
             )
             return True
         except Exception as e:
-            logger.error(f"Failed to delete account from Notion: {e}")
+            logger.error(f"Failed to delete page from Notion: {e}")
             return False
 
     async def add_expense(self, expense: Expense) -> bool:
@@ -258,25 +258,5 @@ class NotionWriter:
         except Exception as e:
             logger.error(f"Failed to get expenses from Notion: {e}")
             return []
-
-    async def delete_expense(self, expense_id: str) -> bool:
-        """
-        Removing expense from Notion DB.
-
-        Args:
-            expense_id: Expense ID.
-
-        Returns:
-            True if successful, False otherwise.
-        """
-        try:
-            await self.client.pages.update(
-                page_id=expense_id,
-                archived=True
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Failed to delete expense from Notion: {e}")
-            return False
 
 notion_writer = NotionWriter()
