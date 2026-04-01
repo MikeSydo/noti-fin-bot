@@ -132,6 +132,24 @@ def mock_expenses_response():
     }
 
 @pytest.fixture
+def mock_group_expenses_response():
+    return {
+        "results": [
+            {
+                "id": "uuid_grexpense_1",
+                "properties": {
+                    "Group Expense": {"title": [{"text": {"content": "Party"}}]},
+                    "Amount": {"number": 1500.0},
+                    "Date": {"date": {"start": "2024-03-01T10:00:00"}},
+                    "Account": {"relation": [{"id": "uuid_account_1"}]},
+                    "Category": {"relation": [{"id": "uuid_category_1"}]},
+                    "Receipt": {"files": [{"type": "external", "external": {"url": "http://example.com/receipt.jpg"}}]}
+                }
+            },
+        ]
+    }
+
+@pytest.fixture
 def mock_writer():
     """Create a mock notion writer"""
     with patch('services.notion_writer.AsyncClient') as MockAsyncClient:
@@ -302,6 +320,51 @@ async def test_add_expense_success(mock_writer, account_input, category_input):
     call_kwargs = mock_client.pages.create.call_args.kwargs
     assert call_kwargs["parent"] == {"database_id": "test_expenses_db_id"}
     assert call_kwargs["properties"] == test_expense.to_notion_properties()
+
+@pytest.mark.asyncio
+async def test_add_group_expense_success(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(return_value={})
+    writer.group_expenses_db_id = "test_group_expenses_db_id"
+    
+    from models.group_expense import GroupExpense
+    test_expense = GroupExpense(
+        name="Party",
+        amount=Decimal("1500.00"),
+        date=datetime.now(),
+        account=None,
+        category=None,
+        receipt_url="http://example.com/receipt.jpg"
+    )
+
+    result = await writer.add_group_expense(test_expense)
+
+    assert result is True
+    mock_client.pages.create.assert_called_once()
+    
+    call_kwargs = mock_client.pages.create.call_args.kwargs
+    assert call_kwargs["parent"] == {"database_id": "test_group_expenses_db_id"}
+    assert call_kwargs["properties"] == test_expense.to_notion_properties()
+
+@pytest.mark.asyncio
+async def test_add_group_expense_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(side_effect=Exception("API Error"))
+    
+    from models.group_expense import GroupExpense
+    test_expense = GroupExpense(
+        name="Party error",
+        amount=Decimal("1500.00"),
+        date=datetime.now(),
+        account=None,
+        category=None,
+        receipt_url="http://example.com/receipt.jpg"
+    )
+
+    result = await writer.add_group_expense(test_expense)
+    
+    assert result is False
+    mock_client.pages.create.assert_called_once()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("account_input, category_input", [
