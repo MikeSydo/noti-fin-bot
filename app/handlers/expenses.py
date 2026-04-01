@@ -120,7 +120,8 @@ async def process_account_selection(callback: CallbackQuery, state: FSMContext):
     """Handle account selection."""
     await callback.answer()
     account_id = callback.data.replace('select_account_', '')
-    await state.update_data(account_id=account_id)
+    account = await notion_writer.get_account(account_id)
+    await state.update_data(account=account)
     
     await ask_for_category(callback.message, state)
 
@@ -156,21 +157,23 @@ async def save_expense(message: Message, state: FSMContext):
 
     try:
         amount = data.get("amount")
+        account = data.get("account")
         expense = Expense(
             name=data["name"],
             amount=Decimal(amount) if amount is not None else None,
             date=data["date"],
-            account_id=data["account_id"],
+            account=account if account is not None else None,
             category_id=data["category_id"],
         )
 
         success = await notion_writer.add_expense(expense)
 
         if success:
-            display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "0.00"
+            display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "None"
             await message.answer(
                 f"Витрату збережено!\n\n**{expense.name}**\nСума: {display_amount}\nДата: {expense.date}\n"
-                f"Акаунт: {expense.account_id}\nКатегорія: {expense.category_id}",
+                f"Акаунт: {expense.account.name}" if expense.account is not None else "None"
+                f"\nКатегорія: {expense.category_id}",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )

@@ -154,8 +154,7 @@ class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
         # Check parsed data for the second account (with missing initial amount)
         self.assertEqual(accounts[1].id, "uuid_account_2")
         self.assertEqual(accounts[1].name, "Готівка")
-        # If the value in Notion is None, the program should recognize it as 0
-        self.assertEqual(accounts[1].initial_amount, Decimal("0"))
+        self.assertEqual(accounts[1].initial_amount, None)
         
         # Check correct API call with required parameters
         mock_client_instance.request.assert_called_once_with(
@@ -178,6 +177,48 @@ class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(accounts, [])
 
+    @patch('services.notion_writer.AsyncClient')
+    async def test_get_account_success(self, MockAsyncClient):
+        """Test for getting and correctly converting an account object from Notion"""
+        mock_client_instance = MockAsyncClient.return_value
+
+        # Mock JSON response from Notion API
+        mock_response = {
+            "results": [
+                {
+                    "id": "uuid_account_1",
+                    "properties": {
+                        "Account": {"title": [{"text": {"content": "Monobank"}}]},
+                        "Initial Amount": {"number": 1500.50}
+                    }
+                },
+                {
+                    "id": "uuid_account_2",
+                    "properties": {
+                        "Account": {"title": [{"text": {"content": "Готівка"}}]},
+                        "Initial Amount": {"number": None}  # Mock empty value in database
+                    }
+                }
+            ]
+        }
+        mock_client_instance.request = AsyncMock(return_value=mock_response)
+
+        writer = NotionWriter()
+        writer.client = mock_client_instance
+        writer.accounts_db_id = "test_db_id"
+
+        account = await writer.get_account("uuid_account_1")
+        self.assertEqual(account.id, "uuid_account_1")
+
+        account = await writer.get_account("uuid_account_2")
+        self.assertEqual(account.id, "uuid_account_2")
+
+        # Check correct API call with required parameters
+        mock_client_instance.request.assert_called_with(
+            path="databases/test_db_id/query",
+            method="POST",
+            body={}
+        )
 
 if __name__ == '__main__':
     unittest.main()

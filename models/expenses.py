@@ -12,7 +12,7 @@ class Expense(BaseModel):
     name: str = Field(..., description='Expense')
     amount: Decimal = Field(gte=0, description="Amount")
     date: datetime = Field(..., description="Date")
-    account_id: str = Field(...)
+    account: Account | None = Field(...)
     category_id: str = Field(...)
 
     def to_notion_properties(self) -> dict:
@@ -20,6 +20,6 @@ class Expense(BaseModel):
             "Expense": {"title": [{"text": {"content": self.name}}]},
             "Amount": {"number": float(self.amount)},
             "Date": {"date": {"start": self.date.isoformat()}},
-            "Account": {"relation": [{"id": self.account_id}]},
+            "Account": {"relation": [{"id": self.account.id}]},
             "Category": {"relation": [{"id": self.category_id}]},
         }

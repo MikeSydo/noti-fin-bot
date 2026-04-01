@@ -65,10 +65,11 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Account"]["title"]
+                raw_amount = properties["Initial Amount"]["number"]
                 account = Account(
                     id=page["id"],
                     name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Account",
-                    initial_amount=Decimal(str(properties["Initial Amount"]["number"] or 0)),
+                    initial_amount=Decimal(str(raw_amount)) if raw_amount is not None else None,
                 )
                 accounts.append(account)
             return accounts
@@ -145,5 +146,31 @@ class NotionWriter:
         except Exception as e:
             logger.error(f"Failed to get categories from Notion: {e}")
             return []
+
+    async def get_account(self, id: str) -> Account:
+        """
+        Get account by id from Notion DB.
+        Returns: Account object.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.accounts_db_id}/query",
+                method="POST",
+                body={}
+            )
+            for page in response.get("results", []):
+                properties = page["properties"]
+                title_parts = properties["Account"]["title"]
+                raw_amount = properties["Initial Amount"]["number"]
+                if page["id"] == id:
+                    return Account(
+                        id=page["id"],
+                        name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Account",
+                        initial_amount=Decimal(str(raw_amount)) if raw_amount is not None else None
+                    )
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get account from Notion: {e}")
+            return None
 
 notion_writer = NotionWriter()
