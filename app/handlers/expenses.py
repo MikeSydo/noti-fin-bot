@@ -170,9 +170,10 @@ async def save_expense(message: Message, state: FSMContext):
 
         if success:
             display_amount = f"{expense.amount:.2f}" if expense.amount is not None else "None"
+            account_name = expense.account.name if expense.account is not None else "None"
             await message.answer(
                 f"Витрату збережено!\n\n**{expense.name}**\nСума: {display_amount}\nДата: {expense.date}\n"
-                f"Акаунт: {expense.account.name}" if expense.account is not None else "None"
+                f"Акаунт: {account_name}",
                 f"\nКатегорія: {expense.category_id}",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),

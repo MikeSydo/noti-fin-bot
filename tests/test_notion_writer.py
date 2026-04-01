@@ -1,224 +1,173 @@
-import unittest
-from unittest.mock import AsyncMock, patch
-from decimal import Decimal
+import pytest
 import sys
 import os
+from unittest.mock import AsyncMock, patch
+from decimal import Decimal
+from datetime import datetime
 
-# Add the project root folder to Python paths to make file imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.account import Account
+from models.expenses import Expense
 from services.notion_writer import NotionWriter
 
-
-class TestNotionWriter(unittest.IsolatedAsyncioTestCase):
-    @patch('services.notion_writer.AsyncClient')
-    async def test_add_account_success(self, MockAsyncClient):
-        """Test for successful addition of an account to Notion"""
-        # Setup mock for successful Notion response
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.pages.create = AsyncMock(return_value={})
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance  # Replace client with mock
-        writer.accounts_db_id = "test_db_id"
-
-        # Create test account object
-        test_account = Account(name="Test Account", initial_amount=Decimal("150.50"))
-
-        # Call function
-        result = await writer.add_account(test_account)
-
-        # Assertions
-        self.assertTrue(result)
-        mock_client_instance.pages.create.assert_called_once()
-        call_kwargs = mock_client_instance.pages.create.call_args.kwargs
-        self.assertEqual(call_kwargs["parent"], {"database_id": "test_db_id"})
-        self.assertIn("Account", call_kwargs["properties"])
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_add_account_success_skip_attribute(self, MockAsyncClient):
-        """Test for successful addition of an account without an initial amount (skipped)"""
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.pages.create = AsyncMock(return_value={})
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-        writer.accounts_db_id = "test_db_id"
-
-        # Create test account object without initial amount
-        test_account = Account(name="Test Account", initial_amount=None)
-
-        # Call function
-        result = await writer.add_account(test_account)
-
-        # Assertions
-        self.assertTrue(result)
-        mock_client_instance.pages.create.assert_called_once()
-        call_kwargs = mock_client_instance.pages.create.call_args.kwargs
-        
-        # Check that properties correctly have None for Initial Amount
-        properties = call_kwargs["properties"]
-        self.assertIn("Initial Amount", properties)
-        self.assertIsNone(properties["Initial Amount"]["number"])
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_add_account_failure(self, MockAsyncClient):
-        """Test for handling errors during account addition to Notion"""
-        # Setup mock to simulate Notion connection error
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.pages.create.side_effect = Exception("API Connection Error")
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-
-        test_account = Account(name="Test", initial_amount=Decimal("0"))
-        
-        # Function should catch the error (through try/except) and safely return False
-        result = await writer.add_account(test_account)
-        self.assertFalse(result)
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_delete_account_success(self, MockAsyncClient):
-        """Test for successful deletion (archival) of an account"""
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.pages.update = AsyncMock(return_value={})
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-
-        result = await writer.delete_account("test_account_uuid_123")
-
-        # Check if True is returned and archived=True parameter is sent
-        self.assertTrue(result)
-        mock_client_instance.pages.update.assert_called_once_with(
-            page_id="test_account_uuid_123",
-            archived=True
-        )
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_delete_account_failure(self, MockAsyncClient):
-        """Test for handling errors during account deletion"""
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.pages.update.side_effect = Exception("API Error")
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-
-        result = await writer.delete_account("test_account_uuid_123")
-
-        # Check that the error is caught and False is returned
-        self.assertFalse(result)
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_get_accounts_success(self, MockAsyncClient):
-        """Test for getting and correctly converting a list of accounts from Notion"""
-        mock_client_instance = MockAsyncClient.return_value
-        
-        # Mock JSON response from Notion API
-        mock_response = {
-            "results": [
-                {
-                    "id": "uuid_account_1",
-                    "properties": {
-                        "Account": {"title": [{"text": {"content": "Monobank"}}]},
-                        "Initial Amount": {"number": 1500.50}
-                    }
-                },
-                {
-                    "id": "uuid_account_2",
-                    "properties": {
-                        "Account": {"title": [{"text": {"content": "Готівка"}}]},
-                        "Initial Amount": {"number": None}  # Mock empty value in database
-                    }
+@pytest.fixture
+def mock_accounts_response():
+    return {
+        "results": [
+            {
+                "id": "uuid_account_1",
+                "properties": {
+                    "Account": {"title": [{"text": {"content": "Monobank"}}]},
+                    "Initial Amount": {"number": 1500.50}
                 }
-            ]
-        }
-        mock_client_instance.request = AsyncMock(return_value=mock_response)
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-        writer.accounts_db_id = "test_db_id"
-
-        # Call function to get accounts
-        accounts = await writer.get_accounts()
-
-        # Should get a list of two parsed Account objects
-        self.assertEqual(len(accounts), 2)
-        
-        # Check parsed data for the first account
-        self.assertEqual(accounts[0].id, "uuid_account_1")
-        self.assertEqual(accounts[0].name, "Monobank")
-        self.assertEqual(accounts[0].initial_amount, Decimal("1500.50"))
-        
-        # Check parsed data for the second account (with missing initial amount)
-        self.assertEqual(accounts[1].id, "uuid_account_2")
-        self.assertEqual(accounts[1].name, "Готівка")
-        self.assertEqual(accounts[1].initial_amount, None)
-        
-        # Check correct API call with required parameters
-        mock_client_instance.request.assert_called_once_with(
-            path="databases/test_db_id/query",
-            method="POST",
-            body={}
-        )
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_get_accounts_failure(self, MockAsyncClient):
-        """Test for handling errors during account retrieval"""
-        mock_client_instance = MockAsyncClient.return_value
-        mock_client_instance.request.side_effect = Exception("API Server Error")
-        
-        writer = NotionWriter()
-        writer.client = mock_client_instance
-
-        # In case of Notion crash, the program should return an empty list (and not crash fatally)
-        accounts = await writer.get_accounts()
-
-        self.assertEqual(accounts, [])
-
-    @patch('services.notion_writer.AsyncClient')
-    async def test_get_account_success(self, MockAsyncClient):
-        """Test for getting and correctly converting an account object from Notion"""
-        mock_client_instance = MockAsyncClient.return_value
-
-        # Mock JSON response from Notion API
-        mock_response = {
-            "results": [
-                {
-                    "id": "uuid_account_1",
-                    "properties": {
-                        "Account": {"title": [{"text": {"content": "Monobank"}}]},
-                        "Initial Amount": {"number": 1500.50}
-                    }
-                },
-                {
-                    "id": "uuid_account_2",
-                    "properties": {
-                        "Account": {"title": [{"text": {"content": "Готівка"}}]},
-                        "Initial Amount": {"number": None}  # Mock empty value in database
-                    }
+            },
+            {
+                "id": "uuid_account_2",
+                "properties": {
+                    "Account": {"title": [{"text": {"content": "Готівка"}}]},
+                    "Initial Amount": {"number": None}
                 }
-            ]
-        }
-        mock_client_instance.request = AsyncMock(return_value=mock_response)
+            }
+        ]
+    }
 
+@pytest.fixture
+def mock_categories_response():
+    return {
+        "results": [
+            {
+                "id": "uuid_category_1",
+                "properties": {
+                    "Category": {"title": [{"text": {"content": "Products"}}]},
+                    "Monthly Budget": {"number": 1500.50}
+                }
+            },
+            {
+                "id": "uuid_category_2",
+                "properties": {
+                    "Category": {"title": [{"text": {"content": "Technology"}}]},
+                    "Monthly Budget": {"number": None}
+                }
+            }
+        ]
+    }
+
+@pytest.fixture
+def mock_writer():
+    """Create a mock notion writer"""
+    with patch('services.notion_writer.AsyncClient') as MockAsyncClient:
+        mock_client_instance = MockAsyncClient.return_value
         writer = NotionWriter()
         writer.client = mock_client_instance
         writer.accounts_db_id = "test_db_id"
+        yield writer, mock_client_instance
 
-        account = await writer.get_account("uuid_account_1")
-        self.assertEqual(account.id, "uuid_account_1")
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expected_name, expected_amount", [
+    ("Monobank", Decimal("1500.50")),
+    ("PrivatBank", None),
+])
+async def test_add_account_success(mock_writer, expected_name, expected_amount):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(return_value={})
 
-        account = await writer.get_account("uuid_account_2")
-        self.assertEqual(account.id, "uuid_account_2")
+    test_account = Account(name=expected_name, initial_amount=expected_amount)
 
-        # Check correct API call with required parameters
-        mock_client_instance.request.assert_called_with(
-            path="databases/test_db_id/query",
-            method="POST",
-            body={}
-        )
+    result = await writer.add_account(test_account)
 
-if __name__ == '__main__':
-    unittest.main()
+    assert result is True
+
+    mock_client.pages.create.assert_called_once()
+    call_kwargs = mock_client.pages.create.call_args.kwargs
+    assert call_kwargs["parent"] == {"database_id": "test_db_id"}
+    
+    assert call_kwargs["properties"] == test_account.to_notion_properties()
+
+    account_title = call_kwargs["properties"]["Account"]["title"][0]["text"]["content"]
+    assert account_title == expected_name
+
+@pytest.mark.asyncio
+async def test_delete_account_success(mock_writer, mock_accounts_response):
+    writer, mock_client = mock_writer
+    mock_client.pages.update = AsyncMock(return_value={})
+
+    result = await writer.delete_account("uuid_account_1")
+
+    assert result is True
+    mock_client.pages.update.assert_called_once_with(
+        page_id="uuid_account_1",
+        archived=True
+    )
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("account_id, expected_name, expected_amount", [
+    ("uuid_account_1", "Monobank", Decimal("1500.50")),
+    ("uuid_account_2", "Готівка", None),
+])
+async def test_get_account_success(mock_writer, mock_accounts_response, account_id, expected_name, expected_amount):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_accounts_response)
+
+    account = await writer.get_account(account_id)
+
+    assert account.id == account_id
+    assert account.name == expected_name
+    assert account.initial_amount == expected_amount
+
+@pytest.mark.asyncio
+async def test_get_accounts_success(mock_writer, mock_accounts_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_accounts_response)
+
+    accounts = await writer.get_accounts()
+
+    assert len(accounts) == 2
+    assert accounts[0].id == "uuid_account_1"
+    assert accounts[0].initial_amount == Decimal("1500.50")
+    assert accounts[1].id == "uuid_account_2"
+    assert accounts[1].initial_amount is None
+
+    mock_client.request.assert_called_once_with(
+        path="databases/test_db_id/query",
+        method="POST",
+        body={}
+    )
+
+@pytest.mark.asyncio
+async def test_get_categories_success(mock_writer, mock_categories_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_categories_response)
+
+    categories = await writer.get_categories()
+
+    assert len(categories) == 2
+    assert categories[0].id == "uuid_category_1"
+    assert categories[0].monthly_budget == Decimal("1500.50")
+    assert categories[1].id == "uuid_category_2"
+    assert categories[1].monthly_budget is None
+
+
+@pytest.mark.asyncio
+async def test_add_expense_success(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.create = AsyncMock(return_value={})
+    writer.expenses_db_id = "test_expenses_db_id"
+
+    test_account = Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50"))
+    test_expense = Expense(
+        name="Groceries",
+        amount=Decimal("500.00"),
+        date=datetime.now(),
+        account=test_account,
+        category_id="cat_1"
+    )
+
+    result = await writer.add_expense(test_expense)
+
+    assert result is True
+    mock_client.pages.create.assert_called_once()
+    
+    call_kwargs = mock_client.pages.create.call_args.kwargs
+    assert call_kwargs["parent"] == {"database_id": "test_expenses_db_id"}
+    assert call_kwargs["properties"] == test_expense.to_notion_properties()

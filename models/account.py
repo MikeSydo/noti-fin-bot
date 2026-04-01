@@ -7,7 +7,7 @@ class Account(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     #decription names should be like attributes names in notion db
     name: str = Field(..., description='Account')
-    initial_amount: Optional[Decimal] | None = Field(default=None, gte=0, description="Initial Amount")
+    initial_amount: Optional[Decimal] | None = Field(default=None, ge=0, description="Initial Amount")
 
     def to_notion_properties(self) -> dict:
         return {

@@ -10,7 +10,7 @@ class Expense(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     #decription names should be like attributes names in notion db
     name: str = Field(..., description='Expense')
-    amount: Decimal = Field(gte=0, description="Amount")
+    amount: Decimal = Field(ge=0, description="Amount")
     date: datetime = Field(..., description="Date")
     account: Account | None = Field(...)
     category_id: str = Field(...)

@@ -8,7 +8,7 @@ class Category(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     # decription names should be like attributes names in notion db
     name: str = Field(..., description='Category')
-    monthly_budget: Optional[Decimal] = Field(default=None, gte=0, description="Monthly Budget")
+    monthly_budget: Optional[Decimal] | None = Field(default=None, ge=0, description="Monthly Budget")
 
     def to_notion_properties(self) -> dict:
         return {

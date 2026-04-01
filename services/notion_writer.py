@@ -136,10 +136,11 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Category"]["title"]
+                raw_monthly_budget = properties["Monthly Budget"]["number"]
                 category = Category(
                     id=page["id"],
                     name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Category",
-                    monthly_budget=Decimal(str(properties["Monthly Budget"]["number"] or 0)),
+                    monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None,
                 )
                 categories.append(category)
             return categories
