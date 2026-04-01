@@ -6,7 +6,7 @@ from notion_client import AsyncClient
 from config import settings
 from models.account import Account
 from models.category import Category
-from models.expenses import Expense
+from models.expense import Expense
 
 logger = logging.getLogger(__name__)
 

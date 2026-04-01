@@ -8,7 +8,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.account import Account
-from models.expenses import Expense
+from models.expense import Expense
 from models.category import Category
 from services.notion_writer import NotionWriter
 

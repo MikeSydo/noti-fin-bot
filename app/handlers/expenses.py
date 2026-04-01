@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 
-from models.expenses import Expense
+from models.expense import Expense
 from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
 from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard, \
@@ -234,16 +234,24 @@ async def handle_expense_name_input(message: Message, state: FSMContext):
         return
 
     id_list = await notion_writer.find_expenses(name)
+    if not id_list:
+        await message.answer('Витрату з такою назвою не знайдено.')
+        return
+        
     if len(id_list) == 1:
-       await process_delete_expense(message, state)
+        await state.update_data(id=id_list[0], name=name)
+        await process_delete_expense(message, state)
     else:
+        await state.update_data(name=name, id_list=id_list)
         await show_expenses(message, state)
 
 async def show_expenses(message: Message, state: FSMContext):
-    expenses = await notion_writer.get_expenses()
+    data = await state.get_data()
+    id_list = data.get("id_list", [])
+    expenses = await notion_writer.get_expenses(id_list)
     if not expenses:
         await message.answer('У вас ще немає витрат.')
-        await state.update_data(expense=None)
+        await state.clear()
         return
 
     await message.answer(
@@ -258,8 +266,8 @@ async def process_expense_selection(callback: CallbackQuery, state: FSMContext):
     """Handle expense selection."""
     await callback.answer()
     expense_id = callback.data.replace('select_expense_', '')
-    expense = await notion_writer.get_expenses(list(expense_id))
-    await state.update_data(expense=expense)
+    data = await state.get_data()
+    await state.update_data(id=expense_id, name=data.get('name', 'Витрата'))
 
     await process_delete_expense(callback.message, state)
 
@@ -274,7 +282,7 @@ async def process_delete_expense(message: Message, state: FSMContext):
 
         if success:
             await message.answer(
-                f"Витрату {data['name']} видалено!",
+                f"Витрату {data.get('name', '')} видалено!",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )
