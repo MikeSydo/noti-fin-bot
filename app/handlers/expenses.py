@@ -10,7 +10,8 @@ from datetime import datetime
 from models.expenses import Expense
 from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
-from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard
+from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard, \
+    get_expenses_keyboard
 
 router = Router()
 
@@ -206,5 +207,85 @@ async def save_expense(message: Message, state: FSMContext):
         logger.error(f"Failed to save account: {e}")
         await message.answer(
             'Виникла помилка при збереженні.',
+            reply_markup=await get_main_menu(),
+        )
+
+class DeleteExpenseState(StatesGroup):
+    """FSM state for expense."""
+    waiting_for_name = State()
+    waiting_for_selection = State()
+
+@router.message(F.text == 'Видалити витрату')
+async def start_delete_expense(message: Message, state: FSMContext):
+    """Start logic to remove expense from notion db."""
+    await state.clear()
+    await message.answer(
+        'Введіть назву витрати.',
+        parse_mode="Markdown",
+    )
+    await state.set_state(DeleteExpenseState.waiting_for_name)
+
+@router.message(DeleteExpenseState.waiting_for_name)
+async def handle_expense_name_input(message: Message, state: FSMContext):
+    """Handle expense name find."""
+    name = message.text.strip()
+    if not name:
+        await message.answer('Назва не може бути порожньою! Дію скасовано.')
+        return
+
+    id_list = await notion_writer.find_expenses(name)
+    if len(id_list) == 1:
+       await process_delete_expense(message, state)
+    else:
+        await show_expenses(message, state)
+
+async def show_expenses(message: Message, state: FSMContext):
+    expenses = await notion_writer.get_expenses()
+    if not expenses:
+        await message.answer('У вас ще немає витрат.')
+        await state.update_data(expense=None)
+        return
+
+    await message.answer(
+        'Знайдено більше однієї витрати за цим ім\'ям виберіть за датою:',
+        reply_markup=await get_expenses_keyboard(expenses)
+    )
+    await state.set_state(DeleteExpenseState.waiting_for_selection)
+
+
+@router.callback_query(F.data.startswith('select_expense_'), DeleteExpenseState.waiting_for_selection)
+async def process_expense_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle expense selection."""
+    await callback.answer()
+    expense_id = callback.data.replace('select_expense_', '')
+    expense = await notion_writer.get_expenses(list(expense_id))
+    await state.update_data(expense=expense)
+
+    await process_delete_expense(callback.message, state)
+
+
+async def process_delete_expense(message: Message, state: FSMContext):
+    """Handle expense deletion."""
+    data = await state.get_data()
+    await state.clear()
+
+    try:
+        success = await notion_writer.delete_expense(data['id'])
+
+        if success:
+            await message.answer(
+                f"Витрату {data['name']} видалено!",
+                parse_mode="Markdown",
+                reply_markup=await get_main_menu(),
+            )
+        else:
+            await message.answer(
+                'Не вдалось видалити. Перевірте Notion налаштування.',
+                reply_markup=await get_main_menu()
+            )
+    except Exception as e:
+        logger.error(f"Failed to delete account: {e}")
+        await message.answer(
+            'Виникла помилка при видаленні.',
             reply_markup=await get_main_menu(),
         )

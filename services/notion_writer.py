@@ -148,6 +148,32 @@ class NotionWriter:
             logger.error(f"Failed to get categories from Notion: {e}")
             return []
 
+    async def get_category(self, id: str) -> Category:
+        """
+        Get category by id from Notion DB.
+        Returns: Category object.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.categories_db_id}/query",
+                method="POST",
+                body={}
+            )
+            for page in response.get("results", []):
+                properties = page["properties"]
+                title_parts = properties["Category"]["title"]
+                raw_monthly_budget = properties["Monthly Budget"]["number"]
+                if page["id"] == id:
+                    return Category(
+                        id=page["id"],
+                        name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Category",
+                        monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None
+                    )
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get category from Notion: {e}")
+            return None
+
     async def get_account(self, id: str) -> Account:
         """
         Get account by id from Notion DB.
@@ -173,5 +199,84 @@ class NotionWriter:
         except Exception as e:
             logger.error(f"Failed to get account from Notion: {e}")
             return None
+
+    async def find_expenses(self, name: str) -> list[str]:
+        """Return found expense id by name from Notion DB."""
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.expenses_db_id}/query",
+                method="POST",
+                body={}
+            )
+            id_list = []
+            for page in response.get("results", []):
+                properties = page.get("properties", {})
+                title_parts = properties.get("Expense", {}).get("title", [])
+                if title_parts and name == title_parts[0]["text"]["content"]:
+                    id_list.append(page["id"])
+            if id_list is None:
+                return None
+            return id_list
+        except:
+            logger.error(f"Failed to find expense from Notion: {name}")
+            return None
+
+    async def get_expenses(self, expenses_id: list[str]) -> list[Expense]:
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.expenses_db_id}/query",
+                method="POST",
+                body={}
+            )
+            expenses = []
+            from datetime import datetime
+            for page in response.get("results", []):
+                if expenses_id is not None and page["id"] not in expenses_id:
+                    continue
+
+                properties = page["properties"]
+                title_parts = properties.get("Expense", {}).get("title", [])
+                raw_amount = properties.get("Amount", {}).get("number")
+                date_obj = properties.get("Date", {}).get("date")
+
+                account_rel = properties.get("Account", {}).get("relation", [])
+                category_rel = properties.get("Category", {}).get("relation", [])
+
+                account = Account(id=account_rel[0]["id"], name="Unknown Account") if account_rel else None
+                category = Category(id=category_rel[0]["id"], name="Unknown Category") if category_rel else None
+
+                expense = Expense(
+                    id=page["id"],
+                    name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Expense",
+                    amount=Decimal(str(raw_amount)) if raw_amount is not None else Decimal("0.0"),
+                    date=date_obj["start"] if date_obj else datetime.now().isoformat(),
+                    account=account,
+                    category=category,
+                )
+                expenses.append(expense)
+            return expenses
+        except Exception as e:
+            logger.error(f"Failed to get expenses from Notion: {e}")
+            return []
+
+    async def delete_expense(self, expense_id: str) -> bool:
+        """
+        Removing expense from Notion DB.
+
+        Args:
+            expense_id: Expense ID.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            await self.client.pages.update(
+                page_id=expense_id,
+                archived=True
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete expense from Notion: {e}")
+            return False
 
 notion_writer = NotionWriter()

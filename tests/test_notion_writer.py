@@ -55,6 +55,83 @@ def mock_categories_response():
     }
 
 @pytest.fixture
+def mock_expenses_response():
+    return {
+        "results": [
+            {
+                "id": "uuid_expense_1",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Groceries"}}]},
+                    "Amount": {"number": 500.0},
+                    "Date": {"date": {"start": "2024-03-01T10:00:00"}},
+                    "Account": {"relation": [{"id": "uuid_account_1"}]},
+                    "Category": {"relation": [{"id": "uuid_category_1"}]}
+                }
+            },
+            {
+                "id": "uuid_expense_2",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Internet"}}]},
+                    "Amount": {"number": 200.0},
+                    "Date": {"date": {"start": "2024-03-02T12:00:00"}},
+                    "Account": {"relation": [{"id": "uuid_account_1"}]},
+                    "Category": {"relation": [{"id": "uuid_category_2"}]}
+                }
+            },
+            {
+                "id": "uuid_expense_3",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Coffee"}}]},
+                    "Amount": {"number": 50.0},
+                    "Date": {"date": {"start": "2024-03-03T09:30:00"}},
+                    "Account": {"relation": [{"id": "uuid_account_2"}]},
+                    "Category": {"relation": []}
+                }
+            },
+            {
+                "id": "uuid_expense_4",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Cinema"}}]},
+                    "Amount": {"number": 300.0},
+                    "Date": {"date": {"start": "2024-03-04T19:00:00"}},
+                    "Account": {"relation": []},
+                    "Category": {"relation": [{"id": "uuid_category_2"}]}
+                }
+            },
+            {
+                "id": "uuid_expense_5",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Taxi"}}]},
+                    "Amount": {"number": 150.0},
+                    "Date": {"date": {"start": "2024-03-05T22:15:00"}},
+                    "Account": {"relation": []},
+                    "Category": {"relation": []}
+                }
+            },
+            {
+                "id": "uuid_expense_6",
+                "properties": {
+                    "Expense": {"title": [{"text": {"content": "Coffee"}}]},
+                    "Amount": {"number": 50.0},
+                    "Date": {"date": {"start": "2024-03-04T09:30:00"}},
+                    "Account": {"relation": [{"id": "uuid_account_2"}]},
+                    "Category": {"relation": []}
+                }
+            },
+            {
+                "id": "uuid_expense_7",
+                "properties": {
+                    "Expense": {"title": []},
+                    "Amount": {"number": None},
+                    "Date": {"date": None},
+                    "Account": {"relation": []},
+                    "Category": {"relation": []}
+                }
+            },
+        ]
+    }
+
+@pytest.fixture
 def mock_writer():
     """Create a mock notion writer"""
     with patch('services.notion_writer.AsyncClient') as MockAsyncClient:
@@ -247,3 +324,86 @@ async def test_add_expense_failure(mock_writer, account_input, category_input):
     
     assert result is False
     mock_client.pages.create.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_find_expenses_success(mock_writer, mock_expenses_response):
+    writer, mock_client = mock_writer
+    writer.expenses_db_id = "test_expenses_db_id"
+    mock_client.request = AsyncMock(return_value=mock_expenses_response)
+
+    expenses_id = await writer.find_expenses("Coffee")
+
+    assert expenses_id[0] == "uuid_expense_3"
+    assert expenses_id[1] == "uuid_expense_6"
+
+    mock_client.request.assert_called_with(
+        path="databases/test_expenses_db_id/query",
+        method="POST",
+        body={}
+    )
+
+@pytest.mark.asyncio
+async def test_find_expenses_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    result = await writer.find_expenses("Coffee")
+
+    assert result is None
+    mock_client.request.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_expense_success(mock_writer, mock_expenses_response):
+    writer, mock_client = mock_writer
+    writer.expenses_db_id = "test_expenses_db_id"
+    mock_client.request = AsyncMock(return_value=mock_expenses_response)
+
+    expenses = await writer.get_expenses(["uuid_expense_2", "uuid_expense_7"])
+
+    assert len(expenses) == 2
+    assert expenses[0].id == "uuid_expense_2"
+    assert expenses[1].id == "uuid_expense_7"
+    assert expenses[1].name == "Unnamed Expense"
+    assert expenses[1].amount == Decimal("0.0")
+    assert expenses[1].account is None
+    assert expenses[1].category is None
+
+    mock_client.request.assert_called_with(
+        path="databases/test_expenses_db_id/query",
+        method="POST",
+        body={}
+    )
+
+@pytest.mark.asyncio
+async def test_get_expense_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    expenses = await writer.get_expenses(["uuid_expense_2"])
+
+    assert expenses == []
+    mock_client.request.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_delete_expense_success(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.update = AsyncMock(return_value={})
+
+    result = await writer.delete_expense("uuid_expense_1")
+
+    assert result is True
+    mock_client.pages.update.assert_called_once_with(
+        page_id="uuid_expense_1",
+        archived=True
+    )
+
+@pytest.mark.asyncio
+async def test_delete_expense_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.pages.update = AsyncMock(side_effect=Exception("API Error"))
+
+    result = await writer.delete_expense("uuid_expense_1")
+    
+    assert result is False
+    mock_client.pages.update.assert_called_once()
