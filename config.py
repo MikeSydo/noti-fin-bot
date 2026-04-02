@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     NOTION_API_KEY: str
     NOTION_ACCOUNTS_DB_ID: str
     NOTION_EXPENSES_DB_ID: str
+    NOTION_GROUP_EXPENSES_DB_ID: str
     NOTION_CATEGORIES_DB_ID: str
 
 # Singleton instance

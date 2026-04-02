@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 import logging
 
@@ -7,6 +8,7 @@ from config import settings
 from models.account import Account
 from models.category import Category
 from models.expense import Expense
+from models.group_expense import GroupExpense
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,7 @@ class NotionWriter:
         )
         self.accounts_db_id = format_notion_id(settings.NOTION_ACCOUNTS_DB_ID)
         self.expenses_db_id = format_notion_id(settings.NOTION_EXPENSES_DB_ID)
+        self.group_expenses_db_id = format_notion_id(settings.NOTION_GROUP_EXPENSES_DB_ID)
         self.categories_db_id = format_notion_id(settings.NOTION_CATEGORIES_DB_ID)
 
     async def add_account(self, account: Account) -> bool:
@@ -119,6 +122,27 @@ class NotionWriter:
             logger.error(f"Failed to add expense to Notion: {e}")
             return False
 
+    async def add_group_expense(self, group_expense: GroupExpense) -> bool:
+        """
+        Adding group expense in Notion DB.
+
+        Args:
+            group_expense: GroupExpense data.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            properties = group_expense.to_notion_properties()
+            await self.client.pages.create(
+                parent={"database_id": self.group_expenses_db_id},
+                properties=properties,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add group expense to Notion: {e}")
+            return False
+
     async def get_categories(self) -> list[Category]:
         """
         Get all categories from Notion DB.
@@ -201,7 +225,15 @@ class NotionWriter:
             return None
 
     async def find_expenses(self, name: str) -> list[str]:
-        """Return found expense id by name from Notion DB."""
+        """
+        Find expenses by name.
+
+        Args:
+            name: Expense name.
+
+        Returns:
+            List of expense notion ids.
+        """
         try:
             response = await self.client.request(
                 path=f"databases/{self.expenses_db_id}/query",
@@ -217,11 +249,48 @@ class NotionWriter:
             if id_list is None:
                 return None
             return id_list
-        except:
-            logger.error(f"Failed to find expense from Notion: {name}")
+        except Exception as e:
+            logger.error(f"Failed to find expense from Notion: {e}")
+            return None
+
+    async def find_group_expenses(self, name: str) -> list[str]:
+        """
+        Find group expenses by name.
+
+        Args:
+            name: Group Expense name.
+
+        Returns:
+            List of group expenses notion ids.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.group_expenses_db_id}/query",
+                method="POST",
+                body={
+                    "filter": {
+                        "property": "Group Expense",
+                        "title": {
+                            "contains": name
+                        }
+                    }
+                }
+            )
+            return [result["id"] for result in response.get("results", [])]
+        except Exception as e:
+            logger.error(f"Failed to find group expense from Notion: {e}")
             return None
 
     async def get_expenses(self, expenses_id: list[str]) -> list[Expense]:
+        """
+        Get expenses by ids.
+
+        Args:
+            expenses_id: List of expense ids.
+
+        Returns:
+            List of Expense objects.
+        """
         try:
             response = await self.client.request(
                 path=f"databases/{self.expenses_db_id}/query",
@@ -257,6 +326,106 @@ class NotionWriter:
             return expenses
         except Exception as e:
             logger.error(f"Failed to get expenses from Notion: {e}")
+            return []
+
+    async def get_recent_expenses(self, limit: int = 15) -> list[Expense]:
+        """
+        Get the most recent regular expenses.
+        
+        Args:
+            limit: Maximum number of expenses to retrieve.
+        
+        Returns:
+            List of Expense objects.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.expenses_db_id}/query",
+                method="POST",
+                body={
+                    "page_size": limit,
+                    "sorts": [
+                        {
+                            "property": "Date",
+                            "direction": "descending"
+                        }
+                    ]
+                }
+            )
+            expenses = []
+            from datetime import datetime
+            for page in response.get("results", []):
+                properties = page["properties"]
+                title_parts = properties.get("Expense", {}).get("title", [])
+                raw_amount = properties.get("Amount", {}).get("number")
+                date_obj = properties.get("Date", {}).get("date")
+
+                account_rel = properties.get("Account", {}).get("relation", [])
+                category_rel = properties.get("Category", {}).get("relation", [])
+
+                account = Account(id=account_rel[0]["id"], name="Unknown Account") if account_rel else None
+                category = Category(id=category_rel[0]["id"], name="Unknown Category") if category_rel else None
+
+                expense = Expense(
+                    id=page["id"],
+                    name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Expense",
+                    amount=Decimal(str(raw_amount)) if raw_amount is not None else Decimal("0.0"),
+                    date=date_obj["start"] if date_obj else datetime.now().isoformat(),
+                    account=account,
+                    category=category,
+                )
+                expenses.append(expense)
+            return expenses
+        except Exception as e:
+            logger.error(f"Failed to get recent expenses from Notion: {e}")
+            return []
+
+    async def get_group_expenses(self, expenses_id: list[str]) -> list[GroupExpense]:
+        """
+        Get group expenses by ids.
+
+        Args:
+            expenses_id: List of group expense ids.
+
+        Returns:
+            List of GroupExpense objects.
+        """
+        try:
+            group_expenses = []
+            for expense_id in expenses_id:
+                response = await self.client.pages.retrieve(page_id=expense_id)
+                properties = response["properties"]
+
+                account_id, category_id = None, None
+                if "Account" in properties and properties["Account"]["relation"]:
+                    account_id = properties["Account"]["relation"][0]["id"]
+                if "Category" in properties and properties["Category"]["relation"]:
+                    category_id = properties["Category"]["relation"][0]["id"]
+
+                receipt_url = None
+                if "Receipt" in properties and properties["Receipt"]["files"]:
+                    file_info = properties["Receipt"]["files"][0]
+                    if file_info["type"] == "external":
+                        receipt_url = file_info["external"]["url"]
+                    elif file_info["type"] == "file":
+                        receipt_url = file_info["file"]["url"]
+
+                account = await self.get_account(account_id) if account_id else None
+                category = await self.get_category(category_id) if category_id else None
+
+                expense_dict = {
+                    "id": response["id"],
+                    "name": properties["Group Expense"]["title"][0]["text"]["content"] if properties["Group Expense"]["title"] else "",
+                    "amount": Decimal(str(properties["Amount"]["number"])) if properties["Amount"]["number"] is not None else Decimal('0'),
+                    "date": datetime.fromisoformat(properties["Date"]["date"]["start"]) if properties["Date"]["date"] else datetime.now(),
+                    "account": account,
+                    "category": category,
+                    "receipt_url": receipt_url
+                }
+                group_expenses.append(GroupExpense.model_validate(expense_dict))
+            return group_expenses
+        except Exception as e:
+            logger.error(f"Failed to get group expenses from Notion: {e}")
             return []
 
 notion_writer = NotionWriter()
