@@ -15,6 +15,7 @@ class GroupExpense(BaseModel):
     account: Optional[Account] = Field(default=None)
     category: Optional[Category] = Field(default=None)
     receipt_url: Optional[str] = Field(default=None, description="Receipt URL")
+    expenses_relations: list[str] = Field(default_factory=list, description="Related Expenses")
 
     def to_notion_properties(self) -> dict:
         properties = {
@@ -38,6 +39,10 @@ class GroupExpense(BaseModel):
                     }
                 ]
             }
+
+        if self.expenses_relations:
+            # Assumes the relation property in Notion is named "Expenses". Adjust if it's named differently.
+            properties["Expenses"] = {"relation": [{"id": e_id} for e_id in self.expenses_relations]}
 
         return properties
 

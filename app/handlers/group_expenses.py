@@ -12,7 +12,7 @@ from models.group_expense import GroupExpense
 from app.keyboards.reply import get_main_menu
 from services.notion_writer import notion_writer
 from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard, \
-    get_group_expenses_keyboard, get_skip_receipt_keyboard
+    get_group_expenses_keyboard, get_skip_receipt_keyboard, get_multi_select_expenses_keyboard
 
 router = Router()
 
@@ -26,6 +26,7 @@ class AddGroupExpenseState(StatesGroup):
     waiting_for_account = State()
     waiting_for_category = State()
     waiting_for_receipt = State()
+    waiting_for_related_expenses = State()
 
 @router.message(F.text == 'Додати групову витрату')
 async def start_add_group_expense(message: Message, state: FSMContext):
@@ -189,10 +190,25 @@ async def process_receipt(message: Message, state: FSMContext):
         file_url = f"https://api.telegram.org/file/bot{message.bot.token}/{file.file_path}"
 
         await state.update_data(receipt_url=file_url)
-        await save_group_expense(message, state)
+        await ask_for_related_expenses(message, state)
     except Exception as e:
-        logger.error(f"Failed to process receipt: {e}")
+        logger.error(f"Failed to process photo receipt: {e}")
         await message.answer("Виникла помилка при обробці фото/файлу. Спробуйте ще раз або пропустіть.")
+
+@router.message(AddGroupExpenseState.waiting_for_receipt, F.document)
+async def process_receipt_document(message: Message, state: FSMContext):
+    """Handle uploaded receipt document."""
+    try:
+        file_id = message.document.file_id
+
+        file = await message.bot.get_file(file_id)
+        file_url = f"https://api.telegram.org/file/bot{message.bot.token}/{file.file_path}"
+
+        await state.update_data(receipt_url=file_url)
+        await ask_for_related_expenses(message, state)
+    except Exception as e:
+        logger.error(f"Failed to process document receipt: {e}")
+        await message.answer("Виникла помилка при обробці документа. Спробуйте ще раз або пропустіть.")
 
 @router.message(AddGroupExpenseState.waiting_for_receipt, F.text)
 async def process_receipt_wrong_format(message: Message, state: FSMContext):
@@ -207,7 +223,73 @@ async def process_skip_receipt(callback: CallbackQuery, state: FSMContext):
     """Handle skipping receipt selection."""
     await callback.answer()
     await state.update_data(receipt_url=None)
+    await ask_for_related_expenses(callback.message, state)
+
+async def ask_for_related_expenses(message: Message, state: FSMContext, edit_message: bool = False):
+    """Ask for related expenses."""
+    await state.set_state(AddGroupExpenseState.waiting_for_related_expenses)
+    
+    data = await state.get_data()
+    # Cache recent expenses in state to avoid re-fetching on pagination
+    if 'recent_expenses' not in data:
+        expenses = await notion_writer.get_recent_expenses(limit=15)
+        # Store as dicts or keep in memory. We'll store dict representations
+        expenses_dicts = [e.model_dump() for e in expenses]
+        await state.update_data(recent_expenses=expenses_dicts, selected_expense_ids=set(), multiexp_page=0)
+        data = await state.get_data()
+    else:
+        from models.expense import Expense
+        expenses = [Expense.model_validate(e) for e in data['recent_expenses']]
+        
+    selected_ids = data.get('selected_expense_ids', set())
+    page = data.get('multiexp_page', 0)
+    
+    if not expenses:
+        if not edit_message:
+            await message.answer('У вас немає недавніх витрат для зв\'язку. Зберігаю...', reply_markup=None)
+        await save_group_expense(message, state)
+        return
+
+    text = "Виберіть звичайні витрати (за останні дні), які входять до цієї групової:"
+    keyboard = await get_multi_select_expenses_keyboard(expenses, selected_ids, page)
+    
+    if edit_message:
+        await message.edit_text(text, reply_markup=keyboard)
+    else:
+        await message.answer(text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith('toggle_grexpense_rel_'), AddGroupExpenseState.waiting_for_related_expenses)
+async def process_toggle_related_expense(callback: CallbackQuery, state: FSMContext):
+    expense_id = callback.data.replace('toggle_grexpense_rel_', '')
+    data = await state.get_data()
+    selected_ids = data.get('selected_expense_ids', set())
+    
+    if expense_id in selected_ids:
+        selected_ids.remove(expense_id)
+    else:
+        selected_ids.add(expense_id)
+        
+    await state.update_data(selected_expense_ids=selected_ids)
+    await ask_for_related_expenses(callback.message, state, edit_message=True)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith('multiexp_page_'), AddGroupExpenseState.waiting_for_related_expenses)
+async def process_multiexp_page_selection(callback: CallbackQuery, state: FSMContext):
+    """Handle pagination for related expenses."""
+    page = int(callback.data.replace('multiexp_page_', ''))
+    await state.update_data(multiexp_page=page)
+    await ask_for_related_expenses(callback.message, state, edit_message=True)
+    await callback.answer()
+
+
+@router.callback_query(F.data == 'finish_expenses_selection', AddGroupExpenseState.waiting_for_related_expenses)
+async def process_finish_related_expenses(callback: CallbackQuery, state: FSMContext):
+    """Finish selection and save."""
+    await callback.answer()
     await save_group_expense(callback.message, state)
+
 
 async def save_group_expense(message: Message, state: FSMContext):
     """Save group expense to Notion."""
@@ -219,6 +301,7 @@ async def save_group_expense(message: Message, state: FSMContext):
         account = data.get("account")
         category = data.get("category")
         receipt_url = data.get("receipt_url")
+        selected_expense_ids = list(data.get("selected_expense_ids", set()))
 
         expense = GroupExpense(
             name=data["name"],
@@ -226,7 +309,8 @@ async def save_group_expense(message: Message, state: FSMContext):
             date=data["date"],
             account=account,
             category=category,
-            receipt_url=receipt_url
+            receipt_url=receipt_url,
+            expenses_relations=selected_expense_ids
         )
 
         success = await notion_writer.add_group_expense(expense)
@@ -236,9 +320,11 @@ async def save_group_expense(message: Message, state: FSMContext):
             account_name = expense.account.name if expense.account is not None else "Пропущено"
             category_name = expense.category.name if expense.category is not None else "Пропущено"
             receipt_status = "Додано" if receipt_url else "Пропущено"
+            relations_count = len(selected_expense_ids)
             await message.answer(
                 f"Групову витрату збережено!\n\n**{expense.name}**\nСума: {display_amount}\nДата: {expense.date}\n"
-                f"Акаунт: {account_name}\nКатегорія: {category_name}\nЧек: {receipt_status}",
+                f"Акаунт: {account_name}\nКатегорія: {category_name}\nЧек: {receipt_status}\n"
+                f"Прив'язаних витрат: {relations_count}",
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(),
             )

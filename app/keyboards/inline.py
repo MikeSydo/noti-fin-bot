@@ -116,6 +116,41 @@ async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int) -
 
     return builder.as_markup()
 
+async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_ids: set[str], page: int) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+
+    start_idx = page * 5
+    end_idx = start_idx + 5
+    current_expenses = expenses[start_idx:end_idx]
+
+    for expense in current_expenses:
+        # Format date for better display, e.g. DD-MM-YYYY
+        date_str = expense.date[:10] if isinstance(expense.date, str) else expense.date.strftime("%d-%m-%Y")
+        is_selected = expense.id in selected_ids
+        check_icon = "[ ]" if is_selected else "[*]"
+        
+        builder.add(
+            InlineKeyboardButton(
+                text=f"{check_icon} {expense.name} ({expense.amount or 0:.2f} | {date_str})",
+                callback_data=f"toggle_grexpense_rel_{expense.id}"
+            )
+        )
+    # 1 button per row gives more horizontal space
+    builder.adjust(1)
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="Назад", callback_data=f"multiexp_page_{page-1}"))
+    if end_idx < len(expenses):
+        nav_buttons.append(InlineKeyboardButton(text="Вперед", callback_data=f"multiexp_page_{page+1}"))
+
+    if nav_buttons:
+        builder.row(*nav_buttons)
+        
+    builder.row(InlineKeyboardButton(text="Зберегти", callback_data="finish_expenses_selection"))
+
+    return builder.as_markup()
+
 async def get_skip_receipt_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
