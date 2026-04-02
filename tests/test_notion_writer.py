@@ -301,7 +301,7 @@ async def test_get_categories_failure(mock_writer):
 ])
 async def test_add_expense_success(mock_writer, account_input, category_input):
     writer, mock_client = mock_writer
-    mock_client.pages.create = AsyncMock(return_value={})
+    mock_client.pages.create = AsyncMock(return_value={"id": "new_expense_id_123"})
     writer.expenses_db_id = "test_expenses_db_id"
     
     test_expense = Expense(
@@ -314,7 +314,7 @@ async def test_add_expense_success(mock_writer, account_input, category_input):
 
     result = await writer.add_expense(test_expense)
 
-    assert result is True
+    assert result == "new_expense_id_123"
     mock_client.pages.create.assert_called_once()
     
     call_kwargs = mock_client.pages.create.call_args.kwargs
@@ -385,7 +385,7 @@ async def test_add_expense_failure(mock_writer, account_input, category_input):
 
     result = await writer.add_expense(test_expense)
     
-    assert result is False
+    assert result is None
     mock_client.pages.create.assert_called_once()
 
 @pytest.mark.asyncio

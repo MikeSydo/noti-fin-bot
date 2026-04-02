@@ -100,7 +100,7 @@ class NotionWriter:
             logger.error(f"Failed to delete page from Notion: {e}")
             return False
 
-    async def add_expense(self, expense: Expense) -> bool:
+    async def add_expense(self, expense: Expense) -> str | None:
         """
         Adding expense in Notion DB.
 
@@ -108,19 +108,19 @@ class NotionWriter:
             expense: Expsense data.
 
         Returns:
-            True if successful, False otherwise.
+            ID of the created expense if successful, None otherwise.
         """
 
         try:
             properties = expense.to_notion_properties()
-            await self.client.pages.create(
+            response = await self.client.pages.create(
                 parent={"database_id": self.expenses_db_id},
                 properties=properties,
             )
-            return True
+            return response["id"]
         except Exception as e:
             logger.error(f"Failed to add expense to Notion: {e}")
-            return False
+            return None
 
     async def add_group_expense(self, group_expense: GroupExpense) -> bool:
         """

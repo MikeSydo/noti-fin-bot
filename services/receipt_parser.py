@@ -16,10 +16,11 @@ class ParsedItem(BaseModel):
     category_name: Optional[str] = Field(description="Best fitting category name from the provided list, or None")
 
 class ParsedReceipt(BaseModel):
-    store_name: str = Field(description="Name of the store or place")
-    group_expense_name: str = Field(description="A descriptive name for the entire receipt, formatted like '[Theme] in [Store name]'. E.g. 'Продукти в Сільпо' or 'Groceries at Walmart'. Use the language of the receipt.")
-    total_amount: float = Field(description="Total amount of the receipt")
-    date: str = Field(description="Date of the receipt in DD-MM-YYYY format")
+    is_receipt: bool = Field(description="Set to true ONLY if the image is a receipt. Set to false if it's a person, landscape, or anything else.")
+    store_name: str = Field(description="Name of the store or place. Empty if not a receipt.")
+    group_expense_name: str = Field(description="A descriptive name for the entire receipt, formatted like '[Theme] in [Store name]'. E.g. 'Продукти в Сільпо' or 'Groceries at Walmart'. Use the language of the receipt. Empty if not a receipt.")
+    total_amount: float = Field(description="Total amount of the receipt. 0 if not a receipt.")
+    date: str = Field(description="Date of the receipt in DD-MM-YYYY format. Empty if not a receipt.")
     items: List[ParsedItem] = Field(description="List of purchased items")
 
 async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[ParsedReceipt]:
@@ -28,7 +29,10 @@ async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[P
     """
     try:
         prompt = f"""
-        Analyze this receipt image. Extract the following information:
+        Analyze this image. First, determine if it is actually a receipt.
+        If it's NOT a receipt (e.g., a photo of a person, animal, nature, or object), set "is_receipt" to false and leave other fields empty.
+        
+        If it IS a receipt, extract the following information:
         - Store name (store_name)
         - A general name for the whole receipt (group_expense_name) such as "Продукти в Сільпо" or "Electronics in BestBuy".
         - Total amount (total_amount)
@@ -38,7 +42,6 @@ async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[P
         For the category_name, you MUST choose the best match from the following list of available categories:
         {', '.join(categories) if categories else 'None available'}
         
-        If the image is NOT a receipt, return an empty response or throw.
         The receipt can be in any language (e.g., Ukrainian, English). Return response in structured JSON.
         """
         

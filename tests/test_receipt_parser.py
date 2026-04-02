@@ -14,10 +14,11 @@ async def test_parse_receipt_success(mock_genai_client):
     mock_response = MagicMock()
     
     mock_data = {
+        "is_receipt": True,
         "store_name": "Test Store",
         "group_expense_name": "Groceries in Test Store",
         "total_amount": 100.50,
-        "date": "2023-10-27",
+        "date": "27-10-2023",
         "items": [
             {"name": "Milk", "amount": 50.25, "category_name": "Food"},
             {"name": "Bread", "amount": 50.25, "category_name": "Food"}
@@ -37,10 +38,11 @@ async def test_parse_receipt_success(mock_genai_client):
     # Assertions
     assert result is not None
     assert isinstance(result, ParsedReceipt)
+    assert result.is_receipt is True
     assert result.store_name == "Test Store"
     assert result.group_expense_name == "Groceries in Test Store"
     assert result.total_amount == 100.50
-    assert result.date == "2023-10-27"
+    assert result.date == "27-10-2023"
     assert len(result.items) == 2
     assert result.items[0].name == "Milk"
     assert result.items[0].amount == 50.25
