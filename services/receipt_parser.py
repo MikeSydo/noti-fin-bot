@@ -1,0 +1,65 @@
+import json
+import logging
+from google import genai
+from google.genai import types
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+class ParsedItem(BaseModel):
+    name: str = Field(description="Name of the item")
+    amount: float = Field(description="Price/Amount of the item")
+    category_name: Optional[str] = Field(description="Best fitting category name from the provided list, or None")
+
+class ParsedReceipt(BaseModel):
+    store_name: str = Field(description="Name of the store or place")
+    group_expense_name: str = Field(description="A descriptive name for the entire receipt, formatted like '[Theme] in [Store name]'. E.g. 'Продукти в Сільпо' or 'Groceries at Walmart'. Use the language of the receipt.")
+    total_amount: float = Field(description="Total amount of the receipt")
+    date: str = Field(description="Date of the receipt in DD-MM-YYYY format")
+    items: List[ParsedItem] = Field(description="List of purchased items")
+
+async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[ParsedReceipt]:
+    """
+    Parses a receipt image using Gemini and extracts structured data.
+    """
+    try:
+        prompt = f"""
+        Analyze this receipt image. Extract the following information:
+        - Store name (store_name)
+        - A general name for the whole receipt (group_expense_name) such as "Продукти в Сільпо" or "Electronics in BestBuy".
+        - Total amount (total_amount)
+        - Date in DD-MM-YYYY format (date)
+        - A list of items (items), where each item has a name, amount, and category_name.
+        
+        For the category_name, you MUST choose the best match from the following list of available categories:
+        {', '.join(categories) if categories else 'None available'}
+        
+        If the image is NOT a receipt, return an empty response or throw.
+        The receipt can be in any language (e.g., Ukrainian, English). Return response in structured JSON.
+        """
+        
+        image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt, image_part],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ParsedReceipt,
+                temperature=0.1,
+            )
+        )
+
+        if not response.text:
+            return None
+
+        data = json.loads(response.text)
+        return ParsedReceipt(**data)
+
+    except Exception as e:
+        logger.error(f"Error parsing receipt with Gemini: {e}")
+        return None

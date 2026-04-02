@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str
 
+    # Gemini
+    GEMINI_API_KEY: str
+
     # Notion
     NOTION_API_KEY: str
     NOTION_ACCOUNTS_DB_ID: str
