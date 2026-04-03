@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from app.keyboards.reply import get_analytics_menu, get_comparison_periods_menu, get_main_menu
 from services.notion_writer import NotionWriter
 from services.analytics import calculate_statistics, analyze_budget_exceeded, compare_periods
+from services.i18n import i18n
 
 router = Router()
 
@@ -14,34 +15,38 @@ class AnalyticsState(StatesGroup):
     waiting_for_dates_stats = State()
     waiting_for_period_comp = State()
 
-@router.message(F.text == 'Аналітика')
+@router.message(F.text.in_(i18n.get_all_translations('btn_analytics')))
 async def analytics_start(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     await message.answer(
-        "Оберіть тип аналітики:", 
-        reply_markup=await get_analytics_menu()
+        i18n.get_text('rep_choose_type', user_id), 
+        reply_markup=await get_analytics_menu(user_id)
     )
 
     await state.set_state(AnalyticsState.waiting_for_report_type)
 
-@router.message(AnalyticsState.waiting_for_report_type, F.text == '⬅️ Головне меню')
+@router.message(AnalyticsState.waiting_for_report_type, F.text.in_(i18n.get_all_translations('menu_analytics_main_menu')))
 async def exit_analytics(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     await state.clear()
-    await message.answer("Головне меню", reply_markup=await get_main_menu())
+    await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
 
-@router.message(AnalyticsState.waiting_for_report_type, F.text == '📊 Статистика')
+@router.message(AnalyticsState.waiting_for_report_type, F.text.in_(i18n.get_all_translations('menu_stats')))
 async def process_stats_type(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     await message.answer(
-        "Введіть дату (наприклад 1.10.2023) або діапазон дат (наприклад 1.10.2023 - 15.10.2023):"
+        i18n.get_text('rep_stats_prompt', user_id)
     )
 
     await state.set_state(AnalyticsState.waiting_for_dates_stats)
 
-@router.message(AnalyticsState.waiting_for_report_type, F.text == '⚖️ Порівняння')
+@router.message(AnalyticsState.waiting_for_report_type, F.text.in_(i18n.get_all_translations('menu_comparison')))
 async def process_comp_type(message: Message, state: FSMContext):
-    await message.answer("Оберіть період для порівняння:", reply_markup=await get_comparison_periods_menu())
+    user_id = message.from_user.id
+    await message.answer(i18n.get_text('rep_comp_prompt', user_id), reply_markup=await get_comparison_periods_menu(user_id))
     await state.set_state(AnalyticsState.waiting_for_period_comp)
 
-@router.message(AnalyticsState.waiting_for_period_comp, F.text == '⬅️ Скасувати')
+@router.message(AnalyticsState.waiting_for_period_comp, F.text.in_(i18n.get_all_translations('menu_cancel')))
 async def cancel_comp(message: Message, state: FSMContext):
     await analytics_start(message, state)
 
@@ -50,6 +55,7 @@ def parse_date(date_str: str) -> datetime:
 
 @router.message(AnalyticsState.waiting_for_dates_stats)
 async def process_stats_dates(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     text = message.text or ""
 
     try:
@@ -62,17 +68,17 @@ async def process_stats_dates(message: Message, state: FSMContext):
             end_date = start_date
 
     except ValueError:
-        await message.answer("Неправильний формат дати. Спробуйте ще раз (наприклад, 1.10.2023 або 1.10.2023 - 15.10.2023)")
+        await message.answer(i18n.get_text('rep_invalid_date_format', user_id))
         return
 
-    await message.answer("Збираю дані. Зачекайте...")
+    await message.answer(i18n.get_text('rep_gathering_data', user_id))
 
     writer = NotionWriter()
     categories = await writer.get_categories()
     expenses = await writer.get_expenses_by_date_range(start_date, end_date)
 
     if not expenses:
-        await message.answer("Не знайдено витрат за цей період.")
+        await message.answer(i18n.get_text('rep_no_expenses', user_id))
         await state.clear()
         return
 
@@ -100,27 +106,28 @@ async def process_stats_dates(message: Message, state: FSMContext):
         await message.answer(report[i:i+4000], parse_mode="Markdown")
 
     await state.clear()
-    await message.answer("Головне меню", reply_markup=await get_main_menu())
+    await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
 
 @router.message(AnalyticsState.waiting_for_period_comp)
 async def process_comp_period(message: Message, state: FSMContext):
+    user_id = message.from_user.id
     period = message.text
     now = datetime.now()
 
-    if period == 'Цей день':
+    if period in i18n.get_all_translations('menu_today'):
         current_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         current_end = current_start
         prev_start = current_start - timedelta(days=1)
         prev_end = prev_start
 
-    elif period == 'Цей тиждень':
+    elif period in i18n.get_all_translations('menu_this_week'):
         current_start = now - timedelta(days=now.weekday())
         current_start = current_start.replace(hour=0, minute=0, second=0, microsecond=0)
         current_end = now
         prev_start = current_start - timedelta(days=7)
         prev_end = current_start - timedelta(days=1)
 
-    elif period == 'Цей місяць':
+    elif period in i18n.get_all_translations('menu_this_month'):
         current_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_end = now
         # simple previous month logic
@@ -128,10 +135,10 @@ async def process_comp_period(message: Message, state: FSMContext):
         prev_start = first_day_prev
         prev_end = current_start - timedelta(days=1)
     else:
-        await message.answer("Оберіть період із клавіатури.")
+        await message.answer(i18n.get_text('rep_choose_period_kbd', user_id))
         return
 
-    await message.answer("Збираю дані. Зачекайте...")
+    await message.answer(i18n.get_text('rep_gathering_data', user_id))
 
     writer = NotionWriter()
     categories = await writer.get_categories()
@@ -142,7 +149,7 @@ async def process_comp_period(message: Message, state: FSMContext):
     prev_stats, prev_total, _ = calculate_statistics(prev_exp, categories)
 
     def format_stats(stats, total):
-        res = f"Загальна сума: {total}\n"
+        res = f"Total: {total}\n"
         for _, data in stats.items():
             if data["tx_count"] > 0:
                 res += f"- {data['name']}: {data['amount']}\n"
@@ -150,7 +157,7 @@ async def process_comp_period(message: Message, state: FSMContext):
 
     curr_data_str = format_stats(curr_stats, curr_total)
     prev_data_str = format_stats(prev_stats, prev_total)
-    await message.answer("Аналізую порівняння через AI...")
+    await message.answer(i18n.get_text('rep_analyzing_comp', user_id))
 
     ai_verdict = await compare_periods(curr_data_str, prev_data_str)
     report = f"⚖️ *Порівняння:* {period}\n\n🤖 *Вердикт від AI:*\n{ai_verdict}"
@@ -160,4 +167,4 @@ async def process_comp_period(message: Message, state: FSMContext):
         await message.answer(report[i:i+4000], parse_mode="Markdown")
 
     await state.clear()
-    await message.answer("Головне меню", reply_markup=await get_main_menu())
+    await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))

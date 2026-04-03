@@ -64,14 +64,15 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
     return category_stats, total_amount, overbudget_categories
 
-async def analyze_budget_exceeded(overbudget_data: str) -> str:
+async def analyze_budget_exceeded(overbudget_data: str, lang_code: str = "uk") -> str:
     """
     Query Gemini for recommendations on overbudget categories.
     """
+    lang_name = "Ukrainian" if lang_code == "uk" else "English"
     prompt = f"""
         Analyze the following expense categories where the budget was exceeded:
         {overbudget_data}
-        Give short, friendly, and practical recommendations in Ukrainian on how to 
+        Give short, friendly, and practical recommendations in {lang_name} on how to 
         optimize these expenses or avoid buying non-essential items.
         Do not use markdown formatting, just plain text.
     """
@@ -85,20 +86,23 @@ async def analyze_budget_exceeded(overbudget_data: str) -> str:
     except Exception as e:
         logger.error(f"Error calling Gemini: {e}")
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            return "🤖 Перевищено безкоштовний ліміт запитів до AI. Будь ласка, зачекайте хвилину і спробуйте знову."
-        return "Не вдалося отримати рекомендації від AI."
+            from services.i18n import i18n
+            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
+        from services.i18n import i18n
+        return i18n.get_text('ai_recommendations_failed', lang_code=lang_code)
 
-async def compare_periods(current_period_data: str, previous_period_data: str) -> str:
+async def compare_periods(current_period_data: str, previous_period_data: str, lang_code: str = "uk") -> str:
     """
     Query Gemini to compare two periods of expenses.
     """
+    lang_name = "Ukrainian" if lang_code == "uk" else "English"
     prompt = f"""
         Compare expenses for two periods:
         Current period:
         {current_period_data}
         Previous period:
         {previous_period_data}
-        Provide a brief analysis in Ukrainian: whether expenses increased, in which categories the largest differences are, 
+        Provide a brief analysis in {lang_name}: whether expenses increased, in which categories the largest differences are, 
         and give a general verdict on financial behavior. Do not use markdown formatting, just plain text.
     """
     try:
@@ -111,5 +115,7 @@ async def compare_periods(current_period_data: str, previous_period_data: str) -
     except Exception as e:
         logger.error(f"Error calling Gemini: {e}")
         if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            return "🤖 Перевищено безкоштовний ліміт запитів до AI. Будь ласка, зачекайте хвилину і спробуйте знову."
-        return "Не вдалося отримати аналіз від AI."
+            from services.i18n import i18n
+            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
+        from services.i18n import i18n
+        return i18n.get_text('ai_analysis_failed', lang_code=lang_code)

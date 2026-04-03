@@ -7,19 +7,22 @@ from models.account import Account
 from models.category import Category
 from models.expense import Expense
 from models.group_expense import GroupExpense
+from services.i18n import i18n
 
 
-async def get_skip_attribute_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
+async def get_skip_attribute_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    """Returns an inline keyboard with a 'skip' button."""
+    kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Пропустити', callback_data='skip_attribute')]
-        ],
+            [InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data="skip_attribute")]
+        ]
     )
+    return kb
 
-async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = False) -> InlineKeyboardMarkup:
+async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = False, user_id: int = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if include_skip:
-        builder.add(InlineKeyboardButton(text='Пропустити', callback_data='skip_account'))
+        builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_account'))
         
     for account in accounts:
         builder.add(
@@ -33,18 +36,18 @@ async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = Fa
     builder.adjust(*sizes)
     return builder.as_markup()
 
-async def get_today_date_keyboard() -> InlineKeyboardMarkup:
+async def get_today_date_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Сьогоднішня дата', callback_data='today_date')]
+            [InlineKeyboardButton(text=i18n.get_text('btn_today_date', user_id), callback_data='today_date')]
         ]
     )
 
-async def get_categories_keyboard(categories: list[Category], include_skip: bool = False) -> InlineKeyboardMarkup:
+async def get_categories_keyboard(categories: list[Category], include_skip: bool = False, user_id: int = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     if include_skip:
-        builder.add(InlineKeyboardButton(text='Пропустити', callback_data='skip_category'))
-        
+        builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_category'))
+
     for category in categories:
         builder.add(
             InlineKeyboardButton(
@@ -57,7 +60,7 @@ async def get_categories_keyboard(categories: list[Category], include_skip: bool
     builder.adjust(*sizes)
     return builder.as_markup()
 
-async def get_expenses_keyboard(expenses: list[Expense], page: int) -> InlineKeyboardMarkup:
+async def get_expenses_keyboard(expenses: list[Expense], page: int, user_id: int = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     
     start_idx = page * 5
@@ -79,16 +82,16 @@ async def get_expenses_keyboard(expenses: list[Expense], page: int) -> InlineKey
     # Add navigation buttons if needed
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="Назад", callback_data=f"exp_page_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_back', user_id), callback_data=f"exp_page_{page-1}"))
     if end_idx < len(expenses):
-        nav_buttons.append(InlineKeyboardButton(text="Вперед", callback_data=f"exp_page_{page+1}"))
-        
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_forward', user_id), callback_data=f"exp_page_{page+1}"))
+
     if nav_buttons:
         builder.row(*nav_buttons)
         
     return builder.as_markup()
 
-async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int) -> InlineKeyboardMarkup:
+async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int, user_id: int = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     start_idx = page * 5
@@ -107,16 +110,16 @@ async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int) -
 
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="Назад", callback_data=f"grexp_page_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_back', user_id), callback_data=f"grexp_page_{page-1}"))
     if end_idx < len(expenses):
-        nav_buttons.append(InlineKeyboardButton(text="Вперед", callback_data=f"grexp_page_{page+1}"))
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_forward', user_id), callback_data=f"grexp_page_{page+1}"))
 
     if nav_buttons:
         builder.row(*nav_buttons)
 
     return builder.as_markup()
 
-async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_ids: set[str], page: int) -> InlineKeyboardMarkup:
+async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_ids: set[str], page: int, user_id: int = None) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     start_idx = page * 5
@@ -140,20 +143,20 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
 
     nav_buttons = []
     if page > 0:
-        nav_buttons.append(InlineKeyboardButton(text="Назад", callback_data=f"multiexp_page_{page-1}"))
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_back', user_id), callback_data=f"multiexp_page_{page-1}"))
     if end_idx < len(expenses):
-        nav_buttons.append(InlineKeyboardButton(text="Вперед", callback_data=f"multiexp_page_{page+1}"))
+        nav_buttons.append(InlineKeyboardButton(text=i18n.get_text('btn_forward', user_id), callback_data=f"multiexp_page_{page+1}"))
 
     if nav_buttons:
         builder.row(*nav_buttons)
         
-    builder.row(InlineKeyboardButton(text="Зберегти", callback_data="finish_expenses_selection"))
+    builder.row(InlineKeyboardButton(text=i18n.get_text('btn_save', user_id), callback_data="finish_expenses_selection"))
 
     return builder.as_markup()
 
-async def get_skip_receipt_keyboard() -> InlineKeyboardMarkup:
+async def get_skip_receipt_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Пропустити', callback_data='skip_receipt')]
+            [InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_receipt')]
         ],
     )
