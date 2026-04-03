@@ -3,10 +3,8 @@ import logging
 
 from aiogram import Dispatcher, Bot
 from config import settings
-from app.handlers import manual, receipt, accounts, expenses, group_expenses
+from app.handlers import manual, receipt, accounts, expenses, group_expenses, reports
 from aiogram.types import BotCommand
-
-from models import account
 
 bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
 dp = Dispatcher() #router to process messages, callback, etc...
@@ -27,6 +25,7 @@ async def main():
     dp.include_router(accounts.router)
     dp.include_router(expenses.router)
     dp.include_router(group_expenses.router)
+    dp.include_router(reports.router)
 
     await set_bot_commands()
 
