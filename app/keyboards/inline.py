@@ -23,17 +23,18 @@ async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = Fa
     builder = InlineKeyboardBuilder()
     if include_skip:
         builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_account'))
-        
+
     for account in accounts:
+        budget_str = f"({account.monthly_budget:.2f})" if getattr(account, 'monthly_budget', None) else ""
+        text_display = f"{account.name} {budget_str}".strip()
         builder.add(
             InlineKeyboardButton(
-                text=f"{account.name} ({account.initial_amount or 0:.2f})",
+                text=text_display,
                 callback_data=f"select_account_{account.id}"
             )
         )
-        
-    sizes = [1, 2] if include_skip else [2]
-    builder.adjust(*sizes)
+
+    builder.adjust(1)
     return builder.as_markup()
 
 async def get_today_date_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -51,11 +52,11 @@ async def get_categories_keyboard(categories: list[Category], include_skip: bool
     for category in categories:
         builder.add(
             InlineKeyboardButton(
-                text=f"{category.name} ({category.monthly_budget or 0:.2f})",
+                text=f"{category.name}",
                 callback_data=f"select_category_{category.id}"
             )
         )
-        
+
     sizes = [1, 2] if include_skip else [2]
     builder.adjust(*sizes)
     return builder.as_markup()

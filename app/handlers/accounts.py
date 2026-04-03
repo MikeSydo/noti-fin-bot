@@ -20,6 +20,7 @@ class AddAccountState(StatesGroup):
     """FSM state for accounts."""
     waiting_for_name = State()
     waiting_for_initial_amount = State()
+    waiting_for_monthly_budget = State()
 
 @router.message(F.text.in_(i18n.get_all_translations('btn_add_account')))
 async def start_add_account(message: Message, state: FSMContext):
@@ -54,8 +55,12 @@ async def handle_skip_initial_amount(callback: CallbackQuery, state: FSMContext)
     user_id = callback.from_user.id
     await callback.answer()  # remove loading animation
     await state.update_data(initial_amount=None)
-    await callback.message.answer(i18n.get_text('acc_skip_initial_amount', user_id))
-    await save_account(callback.message, state)
+
+    await callback.message.answer(
+        i18n.get_text('acc_skip_initial_amount', user_id),
+        reply_markup=await get_skip_attribute_keyboard(user_id)
+    )
+    await state.set_state(AddAccountState.waiting_for_monthly_budget)
 
 @router.message(AddAccountState.waiting_for_initial_amount)
 async def handle_initial_amount_input(message: Message, state: FSMContext):
@@ -74,6 +79,36 @@ async def handle_initial_amount_input(message: Message, state: FSMContext):
     await message.answer(
         i18n.get_text('acc_initial_amount_saved', user_id, initial_amount=f'{initial_amount:.2f}'),
         parse_mode="Markdown",
+        reply_markup=await get_skip_attribute_keyboard(user_id)
+    )
+    await state.set_state(AddAccountState.waiting_for_monthly_budget)
+
+@router.callback_query(F.data == 'skip_attribute', AddAccountState.waiting_for_monthly_budget)
+async def handle_skip_monthly_budget(callback: CallbackQuery, state: FSMContext):
+    """Handle skip monthly budget button."""
+    user_id = callback.from_user.id
+    await callback.answer()
+    await state.update_data(monthly_budget=None)
+    await callback.message.answer(i18n.get_text('acc_skip_monthly_budget', user_id))
+    await save_account(callback.message, state)
+
+@router.message(AddAccountState.waiting_for_monthly_budget)
+async def handle_monthly_budget_input(message: Message, state: FSMContext):
+    """Handle monthly budget input."""
+    user_id = message.from_user.id
+    try:
+        monthly_budget_str = message.text.strip().replace(",", ".")
+        monthly_budget = Decimal(monthly_budget_str)
+        if monthly_budget < 0:
+            raise InvalidOperation("Amount must be positive")
+    except (InvalidOperation, ValueError):
+        await message.answer(i18n.get_text('acc_invalid_monthly_budget', user_id))
+        return
+
+    await state.update_data(monthly_budget=str(monthly_budget))
+    await message.answer(
+        i18n.get_text('acc_monthly_budget_saved', user_id, monthly_budget=f'{monthly_budget:.2f}'),
+        parse_mode="Markdown",
     )
     await save_account(message, state)
 
@@ -88,17 +123,20 @@ async def save_account(message: Message, state: FSMContext):
 
     try:
         init_amount = data.get("initial_amount")
+        monthly_budget = data.get("monthly_budget")
         account = Account(
             name=data["name"],
             initial_amount=Decimal(init_amount) if init_amount is not None else None,
+            monthly_budget=Decimal(monthly_budget) if monthly_budget is not None else None,
         )
 
         success = await notion_writer.add_account(account)
 
         if success:
             display_amount = f"{account.initial_amount:.2f}" if account.initial_amount is not None else "0.00"
+            display_budget = f"{account.monthly_budget:.2f}" if account.monthly_budget is not None else "0.00"
             await message.answer(
-                i18n.get_text('acc_saved', user_id, name=account.name, initial_amount=display_amount),
+                i18n.get_text('acc_saved', user_id, name=account.name, initial_amount=display_amount, monthly_budget=display_budget),
                 parse_mode="Markdown",
                 reply_markup=await get_main_menu(user_id),
             )

@@ -23,7 +23,7 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
             "name": cat.name,
             "amount": Decimal('0'),
             "tx_count": 0,
-            "max_budget": cat.monthly_budget,
+            "max_budget": None,
             "percent_of_total": Decimal('0'),
             "percent_of_budget": Decimal('0'),
         }

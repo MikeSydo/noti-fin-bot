@@ -8,6 +8,7 @@ class Account(BaseModel):
     #decription names should be like attributes names in notion db
     name: str = Field(..., description='Account')
     initial_amount: Optional[Decimal] | None = Field(default=None, ge=0, description="Initial Amount")
+    monthly_budget: Optional[Decimal] | None = Field(default=None, ge=0, description="Monthly Budget")
 
     def to_notion_properties(self) -> dict:
         properties = {
@@ -15,4 +16,6 @@ class Account(BaseModel):
         }
         if self.initial_amount is not None:
             properties["Initial Amount"] = {"number": float(self.initial_amount)}
+        if self.monthly_budget is not None:
+            properties["Monthly Budget"] = {"number": float(self.monthly_budget)}
         return properties

@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field, ConfigDict
-from decimal import Decimal
 from typing import Optional
 
 
@@ -8,12 +7,9 @@ class Category(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     # decription names should be like attributes names in notion db
     name: str = Field(..., description='Category')
-    monthly_budget: Optional[Decimal] | None = Field(default=None, ge=0, description="Monthly Budget")
 
     def to_notion_properties(self) -> dict:
         properties = {
             "Category": {"title": [{"text": {"content": self.name}}]},
         }
-        if self.monthly_budget is not None:
-            properties["Monthly Budget"] = {"number": float(self.monthly_budget)}
         return properties

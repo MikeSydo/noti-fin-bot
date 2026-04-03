@@ -10,9 +10,9 @@ from services.analytics import calculate_statistics, analyze_budget_exceeded, co
 @pytest.fixture
 def mock_categories():
     return [
-        Category(id="cat_1", name="Food", monthly_budget=Decimal("500")),
-        Category(id="cat_2", name="Transport", monthly_budget=Decimal("100")),
-        Category(id="cat_3", name="Entertainment", monthly_budget=None),
+        Category(id="cat_1", name="Food"),
+        Category(id="cat_2", name="Transport"),
+        Category(id="cat_3", name="Entertainment"),
     ]
 
 @pytest.fixture
@@ -34,9 +34,9 @@ def test_calculate_statistics(mock_expenses, mock_categories):
     cat1_stats = stats["cat_1"]
     assert cat1_stats["amount"] == Decimal("550")
     assert cat1_stats["tx_count"] == 2
-    assert cat1_stats["max_budget"] == Decimal("500")
+    assert cat1_stats["max_budget"] is None
     assert cat1_stats["percent_of_total"] == (Decimal("550") / Decimal("900")) * 100
-    assert cat1_stats["percent_of_budget"] == (Decimal("550") / Decimal("500")) * 100
+    assert cat1_stats["percent_of_budget"] == Decimal("0")
 
     cat3_stats = stats["cat_3"]
     assert cat3_stats["amount"] == Decimal("200")
@@ -48,9 +48,7 @@ def test_calculate_statistics(mock_expenses, mock_categories):
     assert unknown_stats["name"] == "Без категорії"
 
     # Check overbudget
-    assert len(overbudget) == 1
-    assert overbudget[0]["name"] == "Food"
-    assert overbudget[0]["excess"] == Decimal("50")
+    assert len(overbudget) == 0
 
 @pytest.mark.asyncio
 @patch("services.analytics.client")

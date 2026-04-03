@@ -280,9 +280,8 @@ async def test_get_categories_success(mock_writer, mock_categories_response):
 
     assert len(categories) == 2
     assert categories[0].id == "uuid_category_1"
-    assert categories[0].monthly_budget == Decimal("1500.50")
+    assert categories[0].name == "Products"
     assert categories[1].id == "uuid_category_2"
-    assert categories[1].monthly_budget is None
 
 @pytest.mark.asyncio
 async def test_get_categories_failure(mock_writer):
@@ -296,7 +295,7 @@ async def test_get_categories_failure(mock_writer):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("account_input, category_input", [
-    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50")), Category(id="cat_1", name="Test Category", monthly_budget=Decimal("5000.00"))),
+    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50"), monthly_budget=Decimal("5000.00")), Category(id="cat_1", name="Test Category")),
     (None, None),
 ])
 async def test_add_expense_success(mock_writer, account_input, category_input):
@@ -368,7 +367,7 @@ async def test_add_group_expense_failure(mock_writer):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("account_input, category_input", [
-    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50")), Category(id="cat_1", name="Test Category", monthly_budget=Decimal("5000.00"))),
+    (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50"), monthly_budget=Decimal("5000.00")), Category(id="cat_1", name="Test Category")),
     (None, None),
 ])
 async def test_add_expense_failure(mock_writer, account_input, category_input):
