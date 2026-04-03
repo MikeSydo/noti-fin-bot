@@ -14,3 +14,23 @@ async def get_main_menu() -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
     )
+
+async def get_analytics_menu() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text='📊 Статистика'), KeyboardButton(text='⚖️ Порівняння')],
+            [KeyboardButton(text='⬅️ Головне меню')]
+        ],
+        resize_keyboard=True,
+    )
+
+async def get_comparison_periods_menu() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text='Цей день')],
+            [KeyboardButton(text='Цей тиждень')],
+            [KeyboardButton(text='Цей місяць')],
+            [KeyboardButton(text='⬅️ Скасувати')]
+        ],
+        resize_keyboard=True,
+    )
