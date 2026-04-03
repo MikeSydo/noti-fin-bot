@@ -23,11 +23,12 @@ class ParsedReceipt(BaseModel):
     date: str = Field(description="Date of the receipt in DD-MM-YYYY format. Empty if not a receipt.")
     items: List[ParsedItem] = Field(description="List of purchased items")
 
-async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[ParsedReceipt]:
+async def parse_receipt(image_bytes: bytes, categories: List[str], lang_code: str = "uk") -> Optional[ParsedReceipt]:
     """
     Parses a receipt image using Gemini and extracts structured data.
     """
     try:
+        lang_name = "Ukrainian" if lang_code == "uk" else "English"
         prompt = f"""
         Analyze this image. First, determine if it is actually a receipt.
         If it's NOT a receipt (e.g., a photo of a person, animal, nature, or object), set "is_receipt" to false and leave other fields empty.
@@ -42,7 +43,7 @@ async def parse_receipt(image_bytes: bytes, categories: List[str]) -> Optional[P
         For the category_name, you MUST choose the best match from the following list of available categories:
         {', '.join(categories) if categories else 'None available'}
         
-        The receipt can be in any language (e.g., Ukrainian, English). Return response in structured JSON.
+        IMPORTANT: Your text responses (names, etc.) should primarily be in {lang_name} language where appropriate. Return response in structured JSON.
         """
         
         image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")

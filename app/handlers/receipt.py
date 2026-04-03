@@ -9,6 +9,7 @@ from app.keyboards.inline import get_accounts_keyboard
 from models.expense import Expense
 from models.group_expense import GroupExpense
 import filetype
+from services.i18n import i18n
 
 router = Router()
 
@@ -17,7 +18,8 @@ class ScanReceiptState(StatesGroup):
 
 @router.message(F.photo, default_state)
 async def get_receipt(message: Message, state: FSMContext, bot: Bot):
-    wait_msg = await message.answer("Аналізую зображення чеку... Це може зайняти до хвилини часу.")
+    user_id = message.from_user.id
+    wait_msg = await message.answer(i18n.get_text('rcp_analyzing', user_id))
     photo = message.photo[-1]
     
     # Download photo
@@ -29,64 +31,58 @@ async def get_receipt(message: Message, state: FSMContext, bot: Bot):
     kind = filetype.guess(image_bytes)
     if not kind or not kind.mime.startswith('image/'):
         await wait_msg.delete()
-        await message.answer("Завантажений файл не схожий на дійсне зображення.")
+        await message.answer(i18n.get_text('rcp_invalid_file', user_id))
         return
         
     categories = await notion_writer.get_categories()
     category_names = [cat.name for cat in categories]
     
-    parsed_receipt = await parse_receipt(image_bytes, category_names)
+    parsed_receipt = await parse_receipt(image_bytes, category_names, lang_code=i18n.get_user_lang(user_id) or "uk")
     await wait_msg.delete()
     if not parsed_receipt:
-        await message.answer("Не вдалося розпізнати чек. Переконайтеся, що фотографія чітка і містить чек.")
+        await message.answer(i18n.get_text('rcp_parsing_failed', user_id))
         return
         
     if not parsed_receipt.is_receipt:
-        await message.answer("Це зображення не схоже на чек. Будь ласка, надішліть фотографію чеку.")
+        await message.answer(i18n.get_text('rcp_not_receipt', user_id))
         return
 
     # Ask for account
     accounts = await notion_writer.get_accounts()
     if not accounts:
-        await message.answer("Акаунти не знайдено. Будь ласка, спочатку додайте акаунт.")
+        await message.answer(i18n.get_text('rcp_no_accounts', user_id))
         return
         
     await state.update_data(
         parsed_receipt=parsed_receipt.model_dump(),
-        # TODO: Upload receipt image to AWS S3 before deployment.
-        # Notion API requires a persistent external URL for attachments.
-        # Since Telegram file URLs expire, we need to upload `image_bytes` to an S3 bucket
-        # using 'boto3', get the public URL (or pre-signed URL), and pass it to GroupExpense.
     )
     await state.set_state(ScanReceiptState.waiting_for_account)
     await message.answer(
-        f"Чек ідентифіковано: {parsed_receipt.store_name} ({parsed_receipt.total_amount})\n"
-        f"Знайдено {len(parsed_receipt.items)} товарів.\n"
-        f"З якого акаунта була здійснена ця витрата?",
-        reply_markup=await get_accounts_keyboard(accounts, include_skip=True)
+        i18n.get_text('rcp_identified', user_id, store_name=parsed_receipt.store_name, total_amount=parsed_receipt.total_amount, items_count=len(parsed_receipt.items)),
+        reply_markup=await get_accounts_keyboard(accounts, include_skip=True, user_id=user_id)
     )
 
 @router.callback_query(F.data.startswith('select_account_'), ScanReceiptState.waiting_for_account)
 async def process_receipt_account_selection(callback: CallbackQuery, state: FSMContext):
     account_id = callback.data.split('_')[2]
-    await handle_save_receipt(callback.message, state, account_id)
+    await handle_save_receipt(callback.message, state, account_id, callback.from_user.id)
     await callback.answer()
 
 @router.callback_query(F.data == 'skip_account', ScanReceiptState.waiting_for_account)
 async def process_receipt_account_skip(callback: CallbackQuery, state: FSMContext):
-    await handle_save_receipt(callback.message, state, None)
+    await handle_save_receipt(callback.message, state, None, callback.from_user.id)
     await callback.answer()
 
-async def handle_save_receipt(message: Message, state: FSMContext, account_id: str | None):
+async def handle_save_receipt(message: Message, state: FSMContext, account_id: str | None, user_id: int):
     data = await state.get_data()
     parsed_dict = data.get("parsed_receipt")
     
     if not parsed_dict:
-        await message.answer("Сесія закінчилась або дані недійсні.")
+        await message.answer(i18n.get_text('rcp_session_expired', user_id))
         await state.clear()
         return
         
-    saving_msg = await message.answer("Зберігаю витрати в Notion...")
+    saving_msg = await message.answer(i18n.get_text('rcp_saving', user_id))
 
     account = None
     if account_id:
@@ -138,8 +134,8 @@ async def handle_save_receipt(message: Message, state: FSMContext, account_id: s
     success = await notion_writer.add_group_expense(group_exp)
     await saving_msg.delete()
     if success:
-        await message.answer(f"Успішно збережено чек з {parsed_dict['store_name']} ({len(expense_ids)} товарів).")
+        await message.answer(i18n.get_text('rcp_saved', user_id, store_name=parsed_dict['store_name'], items_count=len(expense_ids)))
     else:
-        await message.answer("Виникла помилка під час збереження чека в Notion.")
+        await message.answer(i18n.get_text('rcp_save_error', user_id))
 
     await state.clear()
