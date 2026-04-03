@@ -77,13 +77,15 @@ async def analyze_budget_exceeded(overbudget_data: str) -> str:
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
         )
         return response.text
 
     except Exception as e:
         logger.error(f"Error calling Gemini: {e}")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "🤖 Перевищено безкоштовний ліміт запитів до AI. Будь ласка, зачекайте хвилину і спробуйте знову."
         return "Не вдалося отримати рекомендації від AI."
 
 async def compare_periods(current_period_data: str, previous_period_data: str) -> str:
@@ -101,11 +103,13 @@ async def compare_periods(current_period_data: str, previous_period_data: str) -
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=prompt,
         )
         return response.text
 
     except Exception as e:
         logger.error(f"Error calling Gemini: {e}")
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            return "🤖 Перевищено безкоштовний ліміт запитів до AI. Будь ласка, зачекайте хвилину і спробуйте знову."
         return "Не вдалося отримати аналіз від AI."

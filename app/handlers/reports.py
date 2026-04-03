@@ -31,8 +31,7 @@ async def exit_analytics(message: Message, state: FSMContext):
 @router.message(AnalyticsState.waiting_for_report_type, F.text == '📊 Статистика')
 async def process_stats_type(message: Message, state: FSMContext):
     await message.answer(
-        "Введіть дату (наприклад 1.10.2023) або діапазон дат (наприклад 1.10.2023 - 15.10.2023):",
-        parse_mode="MarkdownV2"
+        "Введіть дату (наприклад 1.10.2023) або діапазон дат (наприклад 1.10.2023 - 15.10.2023):"
     )
 
     await state.set_state(AnalyticsState.waiting_for_dates_stats)
@@ -63,7 +62,7 @@ async def process_stats_dates(message: Message, state: FSMContext):
             end_date = start_date
 
     except ValueError:
-        await message.answer("Неправильний формат дати. Спробуйте ще раз (наприклад, 1.10.2023 або 1.10.2023 - 15.10.2023)", parse_mode="MarkdownV2")
+        await message.answer("Неправильний формат дати. Спробуйте ще раз (наприклад, 1.10.2023 або 1.10.2023 - 15.10.2023)")
         return
 
     await message.answer("Збираю дані. Зачекайте...")
