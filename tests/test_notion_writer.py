@@ -470,3 +470,63 @@ async def test_delete_expense_failure(mock_writer):
     
     assert result is False
     mock_client.pages.update.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_expenses_by_date_range_success(mock_writer, mock_expenses_response):
+    writer, mock_client = mock_writer
+    writer.expenses_db_id = "test_expenses_db_id"
+
+    # Mock the response as if the Notion API has already filtered them for 2024-03-01 - 2024-03-04
+    # and sorted them in descending order (Date descending)
+    sorted_mock_results = [
+        mock_expenses_response["results"][3],  # 2024-03-04T19:00:00 (uuid_expense_4)
+        mock_expenses_response["results"][5],  # 2024-03-04T09:30:00 (uuid_expense_6)
+        mock_expenses_response["results"][2],  # 2024-03-03T09:30:00 (uuid_expense_3)
+        mock_expenses_response["results"][1],  # 2024-03-02T12:00:00 (uuid_expense_2)
+        mock_expenses_response["results"][0],  # 2024-03-01T10:00:00 (uuid_expense_1)
+    ]
+
+    mock_client.request = AsyncMock(return_value={"results": sorted_mock_results})
+
+    start_date = datetime(2024, 3, 1)
+    end_date = datetime(2024, 3, 4)
+    expenses = await writer.get_expenses_by_date_range(start_date, end_date)
+
+    # Check the number of results
+    assert len(expenses) == 5
+
+    # Check that all required expenses were fetched and in the correct order
+    expected_ids = ["uuid_expense_4", "uuid_expense_6", "uuid_expense_3", "uuid_expense_2", "uuid_expense_1"]
+    assert [exp.id for exp in expenses] == expected_ids
+
+    # Check that dates converted correctly and are in descending order
+    dates = [exp.date for exp in expenses]
+    assert dates == sorted(dates, reverse=True)
+
+    mock_client.request.assert_called_once()
+    called_kwargs = mock_client.request.call_args.kwargs
+    assert called_kwargs["method"] == "POST"
+
+    # Check the filter payload
+    filter_payload = called_kwargs["body"]["filter"]["and"]
+    assert len(filter_payload) == 2
+    assert filter_payload[0]["date"]["on_or_after"] == start_date.strftime('%Y-%m-%d')
+    assert filter_payload[1]["date"]["on_or_before"] == end_date.strftime('%Y-%m-%d')
+
+    # Check the sorts payload
+    assert "sorts" in called_kwargs["body"]
+    sorts_payload = called_kwargs["body"]["sorts"]
+    assert sorts_payload[0]["property"] == "Date"
+    assert sorts_payload[0]["direction"] == "descending"
+
+@pytest.mark.asyncio
+async def test_get_expenses_by_date_range_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    start_date = datetime(2026, 4, 1)
+    end_date = datetime(2026, 4, 2)
+    expenses = await writer.get_expenses_by_date_range(start_date, end_date)
+
+    assert expenses == []
+    mock_client.request.assert_called_once()
