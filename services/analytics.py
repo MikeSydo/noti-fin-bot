@@ -98,17 +98,14 @@ def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_bud
     buf.seek(0)
     return buf
 
-#TODO: need to rework
-def generate_trend_graph(expenses: List[Expense], start_date: date, end_date: date) -> io.BytesIO:
+def generate_trend_graph(expenses: List[Expense], year: int, month: int, user_id: int) -> io.BytesIO:
     """
-    Generates an expense trend line chart, with forecasting.
-    Scales to months if range is > 2 months, otherwise uses days.
+    Generates a scatter plot of items purchased within a specific month.
+    X-axis: count of purchases, Y-axis: total amount spent on that item.
     """
-    delta = (end_date - start_date).days
-
     df = pd.DataFrame([
-        {'date': exp.date.date(), 'amount': float(exp.amount)}
-        for exp in expenses if start_date <= exp.date.date() <= end_date
+        {'name': exp.name.strip(), 'amount': float(exp.amount)}
+        for exp in expenses if exp.date.year == year and exp.date.month == month
     ])
 
     if df.empty:
@@ -121,53 +118,29 @@ def generate_trend_graph(expenses: List[Expense], start_date: date, end_date: da
         buf.seek(0)
         return buf
 
-    df['date'] = pd.to_datetime(df['date'])
-
-    is_monthly = delta > 60
-    freq_str = 'ME' if is_monthly else 'D'
-    group_df = df.groupby(pd.Grouper(key='date', freq=freq_str))['amount'].sum().reset_index()
-
-    # Simple linear prediction
-    x = np.arange(len(group_df))
-    y = group_df['amount'].values
-
-    if len(x) > 1:
-        z = np.polyfit(x, y, 1)
-        p = np.poly1d(z)
-
-        # Predict next periods (same amount as historical)
-        future_x = np.arange(len(x), len(x) * 2)
-        future_y = p(future_x)
-
-        # Generate future dates
-        last_date = group_df['date'].max()
-        if is_monthly:
-            future_dates = [last_date + pd.DateOffset(months=i) for i in range(1, len(future_x) + 1)]
-        else:
-            future_dates = [last_date + pd.Timedelta(days=i) for i in range(1, len(future_x) + 1)]
-    else:
-        future_x = []
-        future_y = []
-        future_dates = []
+    group_df = df.groupby('name').agg(
+        count=('name', 'size'),
+        total=('amount', 'sum')
+    ).reset_index()
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    width = 20 if is_monthly else 0.8
-    ax.bar(group_df['date'], group_df['amount'], width=width, color='blue', alpha=0.7, label='Фактичні витрати')
+    ax.scatter(group_df['count'], group_df['total'], color='blue', alpha=0.7)
 
-    if len(future_x) > 0:
-        ax.plot(future_dates, future_y, linestyle='--', color='orange', marker='x', linewidth=2, label='Прогноз тенденції')
+    # Annotate points with item names
+    for i, row in group_df.iterrows():
+        ax.annotate(row['name'], (row['count'], row['total']), xytext=(5, 5), textcoords='offset points')
 
-    if is_monthly:
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-    else:
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.set_xlabel(i18n.get_text('graph_trend_x', user_id))
+    ax.set_ylabel(i18n.get_text('graph_trend_y', user_id))
+    
+    # Ensure x-axis only shows integers, and sets standard max of at least 5
+    max_count = max(group_df['count'].max(), 5)
+    ax.set_xticks(range(1, max_count + 1))
+    
+    month_name = i18n.get_text('graph_months', user_id)[month - 1]
+    ax.set_title(i18n.get_text('graph_trend_title', user_id, month_name=month_name, year=year))
 
-    fig.autofmt_xdate()
-
-    ax.set_ylabel('Сума')
-    ax.set_title('Тенденція витрат та прогноз')
-    ax.legend()
 
     buf = io.BytesIO()
     plt.savefig(buf, format='png', bbox_inches='tight')

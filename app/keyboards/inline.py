@@ -155,6 +155,21 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
 
     return builder.as_markup()
 
+async def get_years_inline_keyboard(years: list[int], prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for y in years:
+        builder.add(InlineKeyboardButton(text=str(y), callback_data=f"{prefix}_{y}"))
+    builder.adjust(3)
+    return builder.as_markup()
+
+async def get_months_inline_keyboard(prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    months = i18n.get_text('graph_months', user_id)
+    for i, m in enumerate(months, start=1):
+        builder.add(InlineKeyboardButton(text=m, callback_data=f"{prefix}_{i}"))
+    builder.adjust(3)
+    return builder.as_markup()
+
 async def get_skip_receipt_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
