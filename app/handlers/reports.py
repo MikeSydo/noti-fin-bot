@@ -136,7 +136,7 @@ async def process_year_stats(message: Message, state: FSMContext):
             if selected_account.monthly_budget:
                 monthly_budget = selected_account.monthly_budget
 
-    photo_buf = generate_yearly_budget_graph(expenses, year, monthly_budget)
+    photo_buf = generate_yearly_budget_graph(expenses, year, monthly_budget, user_id)
     photo = BufferedInputFile(photo_buf.getvalue(), filename=f"stats_{year}.png")
 
     caption = i18n.get_text('rep_stats_caption', user_id, year=year, account_name=account_name)
@@ -144,7 +144,7 @@ async def process_year_stats(message: Message, state: FSMContext):
 
     # Calculate and send textual statistics
     categories = await writer.get_categories()
-    category_stats, total_amount, _ = calculate_statistics(expenses, categories)
+    category_stats, total_amount, _ = calculate_statistics(expenses, categories, user_id)
 
     stats_text = i18n.get_text('rep_stats_text_header', user_id, year=year, account_name=account_name, total_amount=f"{total_amount:.2f}")
 

@@ -8,8 +8,9 @@ import numpy as np
 import io
 import pandas as pd
 from datetime import date
+from services.i18n import i18n
 
-def calculate_statistics(expenses: List[Expense], categories: List[Category]) -> Tuple[Dict[str, Any], Decimal, List[Dict[str, Any]]]:
+def calculate_statistics(expenses: List[Expense], categories: List[Category], user_id: int) -> Tuple[Dict[str, Any], Decimal, List[Dict[str, Any]]]:
     """
     Calculates statistics: Total sum, sum per category, % of total, % of max budget, tx count.
     Also returns a list of overbudget categories.
@@ -34,7 +35,7 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
         if cat_id not in category_stats:
              category_stats[cat_id] = {
-                "name": exp.category.name if exp.category else "Без категорії",
+                "name": exp.category.name if exp.category else i18n.get_text('txt_no_category', user_id),
                 "amount": Decimal('0'),
                 "tx_count": 0,
                 "max_budget": None,
@@ -64,7 +65,7 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
     return category_stats, total_amount, overbudget_categories
 
-def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_budget: Decimal) -> io.BytesIO:
+def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_budget: Decimal, user_id: int) -> io.BytesIO:
     """
     Generates a bar chart showing exact expenses per month compared to the monthly budget.
     """
@@ -81,14 +82,14 @@ def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_bud
     fig, ax = plt.subplots(figsize=(10, 6))
 
     colors = ['red' if t > budget else 'green' for t in totals]
-    bars = ax.bar(months, totals, color=colors, label='Витрати')
+    ax.bar(months, totals, color=colors, label=i18n.get_text('graph_expenses_label', user_id))
 
-    ax.axhline(y=budget, color='blue', linestyle='--', label='Місячний бюджет')
+    ax.axhline(y=budget, color='blue', linestyle='--', label=i18n.get_text('graph_budget_label', user_id))
 
     ax.set_xticks(months)
-    ax.set_xticklabels(['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'])
-    ax.set_ylabel('Сума')
-    ax.set_title(f'Річний звіт за {year} рік')
+    ax.set_xticklabels(i18n.get_text('graph_months', user_id))
+    ax.set_ylabel(i18n.get_text('graph_y_label', user_id))
+    ax.set_title(i18n.get_text('graph_title', user_id, year=year))
     ax.legend()
 
     buf = io.BytesIO()
@@ -97,6 +98,7 @@ def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_bud
     buf.seek(0)
     return buf
 
+#TODO: need to rework
 def generate_trend_graph(expenses: List[Expense], start_date: date, end_date: date) -> io.BytesIO:
     """
     Generates an expense trend line chart, with forecasting.

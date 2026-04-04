@@ -27,7 +27,7 @@ def mock_expenses(mock_categories):
     ]
 
 def test_calculate_statistics(mock_expenses, mock_categories):
-    stats, total, overbudget = calculate_statistics(mock_expenses, mock_categories)
+    stats, total, overbudget = calculate_statistics(mock_expenses, mock_categories, user_id=1)
 
     assert total == Decimal("900")  # 150 + 400 + 50 + 200 + 100
 
