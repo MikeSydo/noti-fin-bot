@@ -2,8 +2,8 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from datetime import datetime, timedelta
-from app.keyboards.reply import get_analytics_menu, get_comparison_periods_menu, get_main_menu
+from datetime import datetime
+from app.keyboards.reply import get_analytics_menu, get_main_menu
 from services.notion_writer import NotionWriter
 from services.analytics import calculate_statistics, generate_yearly_budget_graph, generate_trend_graph
 from services.i18n import i18n
@@ -128,7 +128,7 @@ async def process_year_stats(message: Message, state: FSMContext):
 
     # Use monthly budget from the selected account
     monthly_budget = Decimal('10000')
-    account_name = "Всі"
+    account_name = i18n.get_text('txt_all', user_id)
     if account_id:
         selected_account = await writer.get_account(account_id)
         if selected_account:
@@ -141,6 +141,20 @@ async def process_year_stats(message: Message, state: FSMContext):
 
     caption = i18n.get_text('rep_stats_caption', user_id, year=year, account_name=account_name)
     await message.answer_photo(photo=photo, caption=caption)
+
+    # Calculate and send textual statistics
+    categories = await writer.get_categories()
+    category_stats, total_amount, _ = calculate_statistics(expenses, categories)
+
+    stats_text = i18n.get_text('rep_stats_text_header', user_id, year=year, account_name=account_name, total_amount=f"{total_amount:.2f}")
+
+    sorted_stats = sorted(category_stats.values(), key=lambda x: x['amount'], reverse=True)
+    for stat in sorted_stats:
+        if stat['amount'] > 0:
+            stats_text += f"• {stat['name']}: {stat['amount']:.2f} ({stat['percent_of_total']:.1f}%)\n"
+
+    if total_amount > 0:
+        await message.answer(stats_text, parse_mode="Markdown")
 
     await state.clear()
     await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))

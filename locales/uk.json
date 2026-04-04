@@ -84,6 +84,8 @@
   "rep_invalid_year": "Будь ласка, введіть коректний рік.",
   "rep_stats_caption": "Статистика за {year} рік акаунту {account_name}",
   "rep_trend_caption": "Тенденція витрат",
+  "rep_stats_text_header": "📊 *Статистика за {year} рік*\nАкаунт: {account_name}\nЗагальна сума витрат: {total_amount}\n\n*Категорії:*\n",
+  "txt_all": "Всі",
   "rep_analyzing_overbudget": "Аналізую перевищення бюджету через AI...",
   "rep_ai_advice": "\n💡 *Поради від AI:*\n{advice}",
   "rep_choose_period_kbd": "Оберіть період з клавіатури.",

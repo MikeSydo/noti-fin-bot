@@ -1,8 +1,5 @@
 from decimal import Decimal
 from typing import List, Dict, Any, Tuple
-import logging
-from config import settings
-from google import genai
 from models.expense import Expense
 from models.category import Category
 import matplotlib.pyplot as plt
@@ -11,9 +8,6 @@ import numpy as np
 import io
 import pandas as pd
 from datetime import date
-
-logger = logging.getLogger(__name__)
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 def calculate_statistics(expenses: List[Expense], categories: List[Category]) -> Tuple[Dict[str, Any], Decimal, List[Dict[str, Any]]]:
     """

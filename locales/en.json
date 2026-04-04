@@ -84,6 +84,8 @@
   "rep_invalid_year": "Please enter a valid year.",
   "rep_stats_caption": "Statistics for {year} of account {account_name}",
   "rep_trend_caption": "Expense Trend",
+  "rep_stats_text_header": "📊 *Statistics for {year}*\nAccount: {account_name}\nTotal expenses: {total_amount}\n\n*Categories:*\n",
+  "txt_all": "All",
   "rep_analyzing_overbudget": "Analyzing budget limit exceedances using AI...",
   "rep_ai_advice": "\n\uD83D\uDCA1 *Tips from AI:*\n{advice}",
   "rep_choose_period_kbd": "Choose period from keyboard.",
