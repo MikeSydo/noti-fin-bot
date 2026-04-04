@@ -53,11 +53,19 @@ class I18n:
             code = "uk"
 
         text = self.langs.get(code, {}).get(key)
-        if not text:
+        if text is None:
             # Fallback
             text = self.langs.get("uk", {}).get(key, key)
 
-        return text.format(**kwargs)
+        if isinstance(text, list):
+            if kwargs:
+                return [t.format(**kwargs) for t in text]
+            return text
+
+        try:
+            return text.format(**kwargs)
+        except Exception:
+            return text
 
     def get_all_translations(self, key: str) -> list[str]:
         return [self.langs[lang].get(key, key) for lang in self.langs if key in self.langs[lang]]

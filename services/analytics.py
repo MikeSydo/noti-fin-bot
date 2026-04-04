@@ -1,15 +1,16 @@
 from decimal import Decimal
 from typing import List, Dict, Any, Tuple
-import logging
-from config import settings
-from google import genai
 from models.expense import Expense
 from models.category import Category
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy as np
+import io
+import pandas as pd
+from datetime import date
+from services.i18n import i18n
 
-logger = logging.getLogger(__name__)
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-def calculate_statistics(expenses: List[Expense], categories: List[Category]) -> Tuple[Dict[str, Any], Decimal, List[Dict[str, Any]]]:
+def calculate_statistics(expenses: List[Expense], categories: List[Category], user_id: int) -> Tuple[Dict[str, Any], Decimal, List[Dict[str, Any]]]:
     """
     Calculates statistics: Total sum, sum per category, % of total, % of max budget, tx count.
     Also returns a list of overbudget categories.
@@ -23,7 +24,7 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
             "name": cat.name,
             "amount": Decimal('0'),
             "tx_count": 0,
-            "max_budget": cat.monthly_budget,
+            "max_budget": None,
             "percent_of_total": Decimal('0'),
             "percent_of_budget": Decimal('0'),
         }
@@ -34,7 +35,7 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
         if cat_id not in category_stats:
              category_stats[cat_id] = {
-                "name": exp.category.name if exp.category else "Без категорії",
+                "name": exp.category.name if exp.category else i18n.get_text('txt_no_category', user_id),
                 "amount": Decimal('0'),
                 "tx_count": 0,
                 "max_budget": None,
@@ -64,58 +65,85 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
     return category_stats, total_amount, overbudget_categories
 
-async def analyze_budget_exceeded(overbudget_data: str, lang_code: str = "uk") -> str:
+def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_budget: Decimal, user_id: int) -> io.BytesIO:
     """
-    Query Gemini for recommendations on overbudget categories.
+    Generates a bar chart showing exact expenses per month compared to the monthly budget.
     """
-    lang_name = "Ukrainian" if lang_code == "uk" else "English"
-    prompt = f"""
-        Analyze the following expense categories where the budget was exceeded:
-        {overbudget_data}
-        Give short, friendly, and practical recommendations in {lang_name} on how to 
-        optimize these expenses or avoid buying non-essential items.
-        Do not use markdown formatting, just plain text.
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text
+    monthly_totals = {i: Decimal('0') for i in range(1, 13)}
 
-    except Exception as e:
-        logger.error(f"Error calling Gemini: {e}")
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            from services.i18n import i18n
-            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
-        from services.i18n import i18n
-        return i18n.get_text('ai_recommendations_failed', lang_code=lang_code)
+    for exp in expenses:
+        if exp.date.year == year:
+            monthly_totals[exp.date.month] += exp.amount
 
-async def compare_periods(current_period_data: str, previous_period_data: str, lang_code: str = "uk") -> str:
-    """
-    Query Gemini to compare two periods of expenses.
-    """
-    lang_name = "Ukrainian" if lang_code == "uk" else "English"
-    prompt = f"""
-        Compare expenses for two periods:
-        Current period:
-        {current_period_data}
-        Previous period:
-        {previous_period_data}
-        Provide a brief analysis in {lang_name}: whether expenses increased, in which categories the largest differences are, 
-        and give a general verdict on financial behavior. Do not use markdown formatting, just plain text.
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text
+    months = list(range(1, 13))
+    totals = [float(monthly_totals[m]) for m in months]
+    budget = float(monthly_budget)
 
-    except Exception as e:
-        logger.error(f"Error calling Gemini: {e}")
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            from services.i18n import i18n
-            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
-        from services.i18n import i18n
-        return i18n.get_text('ai_analysis_failed', lang_code=lang_code)
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = ['red' if t > budget else 'green' for t in totals]
+    ax.bar(months, totals, color=colors, label=i18n.get_text('graph_expenses_label', user_id))
+
+    ax.axhline(y=budget, color='blue', linestyle='--', label=i18n.get_text('graph_budget_label', user_id))
+
+    ax.set_xticks(months)
+    ax.set_xticklabels(i18n.get_text('graph_months', user_id))
+    ax.set_ylabel(i18n.get_text('graph_y_label', user_id))
+    ax.set_title(i18n.get_text('graph_title', user_id, year=year))
+    ax.legend()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def generate_trend_graph(expenses: List[Expense], year: int, month: int, user_id: int) -> io.BytesIO:
+    """
+    Generates a scatter plot of items purchased within a specific month.
+    X-axis: count of purchases, Y-axis: total amount spent on that item.
+    """
+    df = pd.DataFrame([
+        {'name': exp.name.strip(), 'amount': float(exp.amount)}
+        for exp in expenses if exp.date.year == year and exp.date.month == month
+    ])
+
+    if df.empty:
+        # Return empty plot if no data
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, 'Немає даних за цей період', horizontalalignment='center', verticalalignment='center')
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+
+    group_df = df.groupby('name').agg(
+        count=('name', 'size'),
+        total=('amount', 'sum')
+    ).reset_index()
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ax.scatter(group_df['count'], group_df['total'], color='blue', alpha=0.7)
+
+    # Annotate points with item names
+    for i, row in group_df.iterrows():
+        ax.annotate(row['name'], (row['count'], row['total']), xytext=(5, 5), textcoords='offset points')
+
+    ax.set_xlabel(i18n.get_text('graph_trend_x', user_id))
+    ax.set_ylabel(i18n.get_text('graph_trend_y', user_id))
+    
+    # Ensure x-axis only shows integers, and sets standard max of at least 5
+    max_count = max(group_df['count'].max(), 5)
+    ax.set_xticks(range(1, max_count + 1))
+    
+    month_name = i18n.get_text('graph_months', user_id)[month - 1]
+    ax.set_title(i18n.get_text('graph_trend_title', user_id, month_name=month_name, year=year))
+
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf

@@ -3,17 +3,23 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from datetime import datetime, timedelta
-from app.keyboards.reply import get_analytics_menu, get_comparison_periods_menu, get_main_menu
+from app.keyboards.reply import get_analytics_menu, get_main_menu
 from services.notion_writer import NotionWriter
-from services.analytics import calculate_statistics, analyze_budget_exceeded, compare_periods
+from services.analytics import calculate_statistics, generate_yearly_budget_graph, generate_trend_graph
 from services.i18n import i18n
+from aiogram.types import BufferedInputFile, ReplyKeyboardMarkup, KeyboardButton, CallbackQuery
+from decimal import Decimal
+from app.keyboards.inline import get_accounts_keyboard, get_years_inline_keyboard, get_months_inline_keyboard
 
 router = Router()
 
 class AnalyticsState(StatesGroup):
     waiting_for_report_type = State()
-    waiting_for_dates_stats = State()
-    waiting_for_period_comp = State()
+    waiting_for_account_stats = State()
+    waiting_for_account_trend = State()
+    waiting_for_year_stats = State()
+    waiting_for_year_trend = State()
+    waiting_for_month_trend = State()
 
 @router.message(F.text.in_(i18n.get_all_translations('btn_analytics')))
 async def analytics_start(message: Message, state: FSMContext):
@@ -34,137 +40,187 @@ async def exit_analytics(message: Message, state: FSMContext):
 @router.message(AnalyticsState.waiting_for_report_type, F.text.in_(i18n.get_all_translations('menu_stats')))
 async def process_stats_type(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    await message.answer(
-        i18n.get_text('rep_stats_prompt', user_id)
-    )
+    writer = NotionWriter()
+    accounts = await writer.get_accounts()
 
-    await state.set_state(AnalyticsState.waiting_for_dates_stats)
+    markup = await get_accounts_keyboard(accounts, include_skip=False, user_id=user_id)
+    await message.answer(i18n.get_text('rep_choose_account_stats', user_id), reply_markup=markup)
+    await state.set_state(AnalyticsState.waiting_for_account_stats)
 
 @router.message(AnalyticsState.waiting_for_report_type, F.text.in_(i18n.get_all_translations('menu_comparison')))
 async def process_comp_type(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    await message.answer(i18n.get_text('rep_comp_prompt', user_id), reply_markup=await get_comparison_periods_menu(user_id))
-    await state.set_state(AnalyticsState.waiting_for_period_comp)
+    writer = NotionWriter()
+    accounts = await writer.get_accounts()
 
-@router.message(AnalyticsState.waiting_for_period_comp, F.text.in_(i18n.get_all_translations('menu_cancel')))
+    markup = await get_accounts_keyboard(accounts, include_skip=False, user_id=user_id)
+    await message.answer(i18n.get_text('rep_choose_account_trend', user_id), reply_markup=markup)
+    await state.set_state(AnalyticsState.waiting_for_account_trend)
+
+@router.callback_query(AnalyticsState.waiting_for_account_stats, F.data.startswith('select_account_'))
+async def process_account_stats(callback: CallbackQuery, state: FSMContext):
+    account_id = callback.data.split('select_account_')[-1]
+    await state.update_data(account_id=account_id)
+
+    writer = NotionWriter()
+    expenses = await writer.get_all_expenses()
+    account_expenses = [exp for exp in expenses if exp.account and exp.account.id == account_id]
+
+    years = sorted(list(set([exp.date.year for exp in account_expenses]))) if account_expenses else [datetime.now().year]
+
+    user_id = callback.from_user.id
+    markup = await get_years_inline_keyboard(years, 'year_stats', user_id)
+
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        i18n.get_text('rep_choose_year', user_id),
+        reply_markup=markup
+    )
+    await state.set_state(AnalyticsState.waiting_for_year_stats)
+    await callback.answer()
+
+@router.callback_query(AnalyticsState.waiting_for_account_trend, F.data.startswith('select_account_'))
+async def process_account_trend(callback: CallbackQuery, state: FSMContext):
+    account_id = callback.data.split('select_account_')[-1]
+    await state.update_data(account_id=account_id)
+
+    writer = NotionWriter()
+    expenses = await writer.get_all_expenses()
+    account_expenses = [exp for exp in expenses if exp.account and exp.account.id == account_id]
+
+    years = sorted(list(set([exp.date.year for exp in account_expenses]))) if account_expenses else [datetime.now().year]
+
+    user_id = callback.from_user.id
+    markup = await get_years_inline_keyboard(years, 'year_trend', user_id)
+
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        i18n.get_text('rep_choose_year', user_id),
+        reply_markup=markup
+    )
+    await state.set_state(AnalyticsState.waiting_for_year_trend)
+    await callback.answer()
+
+# Cancel comp was bound to waiting_for_dates_trend, just keeping general cancel via menu
+@router.message(AnalyticsState.waiting_for_year_trend, F.text.in_(i18n.get_all_translations('menu_cancel')))
 async def cancel_comp(message: Message, state: FSMContext):
     await analytics_start(message, state)
 
 def parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str.strip(), "%d.%m.%Y")
 
-@router.message(AnalyticsState.waiting_for_dates_stats)
-async def process_stats_dates(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    text = message.text or ""
+@router.callback_query(AnalyticsState.waiting_for_year_stats, F.data.startswith('year_stats_'))
+async def process_year_stats(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    year = int(callback.data.split('_')[-1])
 
-    try:
-        if "-" in text:
-            start_str, end_str = text.split("-")
-            start_date = parse_date(start_str)
-            end_date = parse_date(end_str)
-        else:
-            start_date = parse_date(text)
-            end_date = start_date
+    await callback.message.edit_reply_markup(reply_markup=None)
+    msg = await callback.message.answer(i18n.get_text('rep_gathering_data', user_id))
 
-    except ValueError:
-        await message.answer(i18n.get_text('rep_invalid_date_format', user_id))
-        return
-
-    await message.answer(i18n.get_text('rep_gathering_data', user_id))
+    user_data = await state.get_data()
+    account_id = user_data.get('account_id')
 
     writer = NotionWriter()
-    categories = await writer.get_categories()
+    start_date = datetime(year, 1, 1)
+    end_date = datetime(year, 12, 31, 23, 59, 59)
     expenses = await writer.get_expenses_by_date_range(start_date, end_date)
 
+    if account_id:
+        expenses = [e for e in expenses if e.account and e.account.id == account_id]
+
     if not expenses:
-        await message.answer(i18n.get_text('rep_no_expenses', user_id))
+        await msg.answer(i18n.get_text('rep_no_expenses', user_id))
         await state.clear()
         return
 
-    stats, total, overbudget = calculate_statistics(expenses, categories)
-    report = f"📊 *Статистика витрат*\nЗагалом витрачено: {total}\n\n"
+    # Use monthly budget from the selected account
+    monthly_budget = Decimal('10000')
+    account_name = i18n.get_text('txt_all', user_id)
+    if account_id:
+        selected_account = await writer.get_account(account_id)
+        if selected_account:
+            account_name = selected_account.name
+            if selected_account.monthly_budget:
+                monthly_budget = selected_account.monthly_budget
 
-    for cat_id, data in stats.items():
-        if data["tx_count"] > 0:
-            report += f"🔹 {data['name']}: {data['amount']} ({data['percent_of_total']:.1f}% від усіх)"
-            if data["max_budget"]:
-                report += f" | {data['percent_of_budget']:.1f}% від ліміту"
-            report += "\n"
+    photo_buf = generate_yearly_budget_graph(expenses, year, monthly_budget, user_id)
+    photo = BufferedInputFile(photo_buf.getvalue(), filename=f"stats_{year}.png")
 
-    if overbudget:
-        overbudget_info = "\n".join(
-            [f"{item['name']}: витрачено {item['spent']}, ліміт {item['limit']}, перевищено на {item['excess']}" for item in overbudget]
-        )
+    caption = i18n.get_text('rep_stats_caption', user_id, year=year, account_name=account_name)
+    await msg.answer_photo(photo=photo, caption=caption)
 
-        await message.answer("Аналізую перевищення бюджету через AI...")
-        ai_advice = await analyze_budget_exceeded(overbudget_info)
-        report += "\n🤖 *Поради від AI:*\n" + ai_advice
+    # Calculate and send textual statistics
+    categories = await writer.get_categories()
+    category_stats, total_amount, _ = calculate_statistics(expenses, categories, user_id)
 
-    # Send long reports gracefully
-    for i in range(0, len(report), 4000):
-        await message.answer(report[i:i+4000], parse_mode="Markdown")
+    stats_text = i18n.get_text('rep_stats_text_header', user_id, year=year, account_name=account_name, total_amount=f"{total_amount:.2f}")
+
+    sorted_stats = sorted(category_stats.values(), key=lambda x: x['amount'], reverse=True)
+    for stat in sorted_stats:
+        if stat['amount'] > 0:
+            stats_text += f"• {stat['name']}: {stat['amount']:.2f} ({stat['percent_of_total']:.1f}%)\n"
+
+    if total_amount > 0:
+        await msg.answer(stats_text, parse_mode="Markdown")
 
     await state.clear()
-    await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
+    await msg.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
+    await callback.answer()
 
-@router.message(AnalyticsState.waiting_for_period_comp)
-async def process_comp_period(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    period = message.text
-    now = datetime.now()
+@router.callback_query(AnalyticsState.waiting_for_year_trend, F.data.startswith('year_trend_'))
+async def process_year_trend(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    year = int(callback.data.split('_')[-1])
+    await state.update_data(trend_year=year)
 
-    if period in i18n.get_all_translations('menu_today'):
-        current_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        current_end = current_start
-        prev_start = current_start - timedelta(days=1)
-        prev_end = prev_start
+    markup = await get_months_inline_keyboard('month_trend', user_id)
 
-    elif period in i18n.get_all_translations('menu_this_week'):
-        current_start = now - timedelta(days=now.weekday())
-        current_start = current_start.replace(hour=0, minute=0, second=0, microsecond=0)
-        current_end = now
-        prev_start = current_start - timedelta(days=7)
-        prev_end = current_start - timedelta(days=1)
+    await callback.message.edit_reply_markup(reply_markup=None)
+    await callback.message.answer(
+        i18n.get_text('rep_choose_month', user_id),
+        reply_markup=markup
+    )
+    await state.set_state(AnalyticsState.waiting_for_month_trend)
+    await callback.answer()
 
-    elif period in i18n.get_all_translations('menu_this_month'):
-        current_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        current_end = now
-        # simple previous month logic
-        first_day_prev = (current_start - timedelta(days=1)).replace(day=1)
-        prev_start = first_day_prev
-        prev_end = current_start - timedelta(days=1)
-    else:
-        await message.answer(i18n.get_text('rep_choose_period_kbd', user_id))
-        return
 
-    await message.answer(i18n.get_text('rep_gathering_data', user_id))
+@router.callback_query(AnalyticsState.waiting_for_month_trend, F.data.startswith('month_trend_'))
+async def process_trend_month(callback: CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    month = int(callback.data.split('_')[-1])
+
+    await callback.message.edit_reply_markup(reply_markup=None)
+    msg = await callback.message.answer(i18n.get_text('rep_gathering_data', user_id))
+
+    user_data = await state.get_data()
+    account_id = user_data.get('account_id')
+    year = user_data.get('trend_year', datetime.now().year)
 
     writer = NotionWriter()
-    categories = await writer.get_categories()
-    curr_exp = await writer.get_expenses_by_date_range(current_start, current_end)
-    prev_exp = await writer.get_expenses_by_date_range(prev_start, prev_end)
+    # To optimize memory usage, let's fetch only specific range
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year, 12, 31, 23, 59, 59)
+    else:
+        end_date = datetime(year, month + 1, 1) - timedelta(seconds=1)
 
-    curr_stats, curr_total, _ = calculate_statistics(curr_exp, categories)
-    prev_stats, prev_total, _ = calculate_statistics(prev_exp, categories)
+    expenses = await writer.get_expenses_by_date_range(start_date, end_date)
 
-    def format_stats(stats, total):
-        res = f"Total: {total}\n"
-        for _, data in stats.items():
-            if data["tx_count"] > 0:
-                res += f"- {data['name']}: {data['amount']}\n"
-        return res
+    if account_id:
+        expenses = [e for e in expenses if e.account and e.account.id == account_id]
 
-    curr_data_str = format_stats(curr_stats, curr_total)
-    prev_data_str = format_stats(prev_stats, prev_total)
-    await message.answer(i18n.get_text('rep_analyzing_comp', user_id))
+    if not expenses:
+        await msg.answer(i18n.get_text('rep_no_expenses', user_id))
+        await state.clear()
+        await callback.answer()
+        return
 
-    ai_verdict = await compare_periods(curr_data_str, prev_data_str)
-    report = f"⚖️ *Порівняння:* {period}\n\n🤖 *Вердикт від AI:*\n{ai_verdict}"
+    photo_buf = generate_trend_graph(expenses, year, month, user_id)
+    photo = BufferedInputFile(photo_buf.getvalue(), filename="trend.png")
 
-    # Send long reports gracefully
-    for i in range(0, len(report), 4000):
-        await message.answer(report[i:i+4000], parse_mode="Markdown")
+    caption = i18n.get_text('rep_trend_caption', user_id)
+    await msg.answer_photo(photo=photo, caption=caption)
 
     await state.clear()
-    await message.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
+    await msg.answer(i18n.get_text('msg_main_menu', user_id), reply_markup=await get_main_menu(user_id))
+    await callback.answer()

@@ -68,11 +68,13 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Account"]["title"]
-                raw_amount = properties["Initial Amount"]["number"]
+                raw_amount = properties.get("Initial Amount", {}).get("number")
+                raw_monthly_budget = properties.get("Monthly Budget", {}).get("number")
                 account = Account(
                     id=page["id"],
                     name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Account",
                     initial_amount=Decimal(str(raw_amount)) if raw_amount is not None else None,
+                    monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None,
                 )
                 accounts.append(account)
             return accounts
@@ -160,11 +162,9 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Category"]["title"]
-                raw_monthly_budget = properties["Monthly Budget"]["number"]
                 category = Category(
                     id=page["id"],
                     name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Category",
-                    monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None,
                 )
                 categories.append(category)
             return categories
@@ -186,12 +186,10 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Category"]["title"]
-                raw_monthly_budget = properties["Monthly Budget"]["number"]
                 if page["id"] == id:
                     return Category(
                         id=page["id"],
                         name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Category",
-                        monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None
                     )
             return None
         except Exception as e:
@@ -212,12 +210,14 @@ class NotionWriter:
             for page in response.get("results", []):
                 properties = page["properties"]
                 title_parts = properties["Account"]["title"]
-                raw_amount = properties["Initial Amount"]["number"]
+                raw_amount = properties.get("Initial Amount", {}).get("number")
+                raw_monthly_budget = properties.get("Monthly Budget", {}).get("number")
                 if page["id"] == id:
                     return Account(
                         id=page["id"],
                         name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Account",
-                        initial_amount=Decimal(str(raw_amount)) if raw_amount is not None else None
+                        initial_amount=Decimal(str(raw_amount)) if raw_amount is not None else None,
+                        monthly_budget=Decimal(str(raw_monthly_budget)) if raw_monthly_budget is not None else None,
                     )
             return None
         except Exception as e:
@@ -378,6 +378,47 @@ class NotionWriter:
             return expenses
         except Exception as e:
             logger.error(f"Failed to get recent expenses from Notion: {e}")
+            return []
+
+    async def get_all_expenses(self) -> list[Expense]:
+        """
+        Get all expenses.
+
+        Returns:
+            List of Expense objects.
+        """
+        try:
+            response = await self.client.request(
+                path=f"databases/{self.expenses_db_id}/query",
+                method="POST",
+                body={}
+            )
+            expenses = []
+            from datetime import datetime
+            for page in response.get("results", []):
+                properties = page["properties"]
+                title_parts = properties.get("Expense", {}).get("title", [])
+                raw_amount = properties.get("Amount", {}).get("number")
+                date_obj = properties.get("Date", {}).get("date")
+
+                account_rel = properties.get("Account", {}).get("relation", [])
+                category_rel = properties.get("Category", {}).get("relation", [])
+
+                account = Account(id=account_rel[0]["id"], name="Unknown Account") if account_rel else None
+                category = Category(id=category_rel[0]["id"], name="Unknown Category") if category_rel else None
+
+                expense = Expense(
+                    id=page["id"],
+                    name=title_parts[0]["text"]["content"] if title_parts else "Unnamed Expense",
+                    amount=Decimal(str(raw_amount)) if raw_amount is not None else Decimal("0.0"),
+                    date=datetime.fromisoformat(date_obj["start"].replace("Z", "+00:00")) if date_obj else datetime.now(),
+                    account=account,
+                    category=category,
+                )
+                expenses.append(expense)
+            return expenses
+        except Exception as e:
+            logger.error(f"Failed to get all expenses from Notion: {e}")
             return []
 
     async def get_group_expenses(self, expenses_id: list[str]) -> list[GroupExpense]:

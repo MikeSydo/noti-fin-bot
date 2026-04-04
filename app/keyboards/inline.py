@@ -23,17 +23,18 @@ async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = Fa
     builder = InlineKeyboardBuilder()
     if include_skip:
         builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_account'))
-        
+
     for account in accounts:
+        budget_str = f"({account.monthly_budget:.2f})" if getattr(account, 'monthly_budget', None) else ""
+        text_display = f"{account.name} {budget_str}".strip()
         builder.add(
             InlineKeyboardButton(
-                text=f"{account.name} ({account.initial_amount or 0:.2f})",
+                text=text_display,
                 callback_data=f"select_account_{account.id}"
             )
         )
-        
-    sizes = [1, 2] if include_skip else [2]
-    builder.adjust(*sizes)
+
+    builder.adjust(1)
     return builder.as_markup()
 
 async def get_today_date_keyboard(user_id: int) -> InlineKeyboardMarkup:
@@ -51,11 +52,11 @@ async def get_categories_keyboard(categories: list[Category], include_skip: bool
     for category in categories:
         builder.add(
             InlineKeyboardButton(
-                text=f"{category.name} ({category.monthly_budget or 0:.2f})",
+                text=f"{category.name}",
                 callback_data=f"select_category_{category.id}"
             )
         )
-        
+
     sizes = [1, 2] if include_skip else [2]
     builder.adjust(*sizes)
     return builder.as_markup()
@@ -152,6 +153,21 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
         
     builder.row(InlineKeyboardButton(text=i18n.get_text('btn_save', user_id), callback_data="finish_expenses_selection"))
 
+    return builder.as_markup()
+
+async def get_years_inline_keyboard(years: list[int], prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for y in years:
+        builder.add(InlineKeyboardButton(text=str(y), callback_data=f"{prefix}_{y}"))
+    builder.adjust(3)
+    return builder.as_markup()
+
+async def get_months_inline_keyboard(prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    months = i18n.get_text('graph_months', user_id)
+    for i, m in enumerate(months, start=1):
+        builder.add(InlineKeyboardButton(text=m, callback_data=f"{prefix}_{i}"))
+    builder.adjust(3)
     return builder.as_markup()
 
 async def get_skip_receipt_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
