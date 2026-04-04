@@ -139,5 +139,5 @@
   "grexp_delete_error": "An error occurred during deletion.",
   "msg_choose_language": "Choose your language:",
   "msg_action_cancelled": "Action cancelled.",
-  "msg_help": "ℹ️ *Help*\n\nThis bot helps you track finances in Notion.\n• *Add account*: Create a new wallet/card\n• *Add expense*: Log a personal expense\n• *Add group expense*: Log a shared expense\n• *Analytics*: View stats and get AI advice\n\nYou can also just send a photo of a receipt, and the AI will recognize it!"
+  "msg_help": "ℹ️ *Help*\n\nThis bot helps you track finances in Notion.\n• *Add account*: Create a new wallet/card\n• *Add expense*: Log a personal expense\n• *Add group expense*: Log a shared expense\n• *Analytics*: View stats or expenses trends\n\nYou can also just send a photo of a receipt, and the AI will recognize it!"
 }
