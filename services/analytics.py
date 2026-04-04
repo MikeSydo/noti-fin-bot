@@ -5,6 +5,12 @@ from config import settings
 from google import genai
 from models.expense import Expense
 from models.category import Category
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import numpy as np
+import io
+import pandas as pd
+from datetime import date
 
 logger = logging.getLogger(__name__)
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -64,58 +70,111 @@ def calculate_statistics(expenses: List[Expense], categories: List[Category]) ->
 
     return category_stats, total_amount, overbudget_categories
 
-async def analyze_budget_exceeded(overbudget_data: str, lang_code: str = "uk") -> str:
+def generate_yearly_budget_graph(expenses: List[Expense], year: int, monthly_budget: Decimal) -> io.BytesIO:
     """
-    Query Gemini for recommendations on overbudget categories.
+    Generates a bar chart showing exact expenses per month compared to the monthly budget.
     """
-    lang_name = "Ukrainian" if lang_code == "uk" else "English"
-    prompt = f"""
-        Analyze the following expense categories where the budget was exceeded:
-        {overbudget_data}
-        Give short, friendly, and practical recommendations in {lang_name} on how to 
-        optimize these expenses or avoid buying non-essential items.
-        Do not use markdown formatting, just plain text.
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text
+    monthly_totals = {i: Decimal('0') for i in range(1, 13)}
 
-    except Exception as e:
-        logger.error(f"Error calling Gemini: {e}")
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            from services.i18n import i18n
-            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
-        from services.i18n import i18n
-        return i18n.get_text('ai_recommendations_failed', lang_code=lang_code)
+    for exp in expenses:
+        if exp.date.year == year:
+            monthly_totals[exp.date.month] += exp.amount
 
-async def compare_periods(current_period_data: str, previous_period_data: str, lang_code: str = "uk") -> str:
-    """
-    Query Gemini to compare two periods of expenses.
-    """
-    lang_name = "Ukrainian" if lang_code == "uk" else "English"
-    prompt = f"""
-        Compare expenses for two periods:
-        Current period:
-        {current_period_data}
-        Previous period:
-        {previous_period_data}
-        Provide a brief analysis in {lang_name}: whether expenses increased, in which categories the largest differences are, 
-        and give a general verdict on financial behavior. Do not use markdown formatting, just plain text.
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text
+    months = list(range(1, 13))
+    totals = [float(monthly_totals[m]) for m in months]
+    budget = float(monthly_budget)
 
-    except Exception as e:
-        logger.error(f"Error calling Gemini: {e}")
-        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-            from services.i18n import i18n
-            return i18n.get_text('ai_rate_limit', lang_code=lang_code)
-        from services.i18n import i18n
-        return i18n.get_text('ai_analysis_failed', lang_code=lang_code)
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = ['red' if t > budget else 'green' for t in totals]
+    bars = ax.bar(months, totals, color=colors, label='Витрати')
+
+    ax.axhline(y=budget, color='blue', linestyle='--', label='Місячний бюджет')
+
+    ax.set_xticks(months)
+    ax.set_xticklabels(['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'])
+    ax.set_ylabel('Сума')
+    ax.set_title(f'Річний звіт за {year} рік')
+    ax.legend()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+def generate_trend_graph(expenses: List[Expense], start_date: date, end_date: date) -> io.BytesIO:
+    """
+    Generates an expense trend line chart, with forecasting.
+    Scales to months if range is > 2 months, otherwise uses days.
+    """
+    delta = (end_date - start_date).days
+
+    df = pd.DataFrame([
+        {'date': exp.date.date(), 'amount': float(exp.amount)}
+        for exp in expenses if start_date <= exp.date.date() <= end_date
+    ])
+
+    if df.empty:
+        # Return empty plot if no data
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, 'Немає даних за цей період', horizontalalignment='center', verticalalignment='center')
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+
+    df['date'] = pd.to_datetime(df['date'])
+
+    is_monthly = delta > 60
+    freq_str = 'ME' if is_monthly else 'D'
+    group_df = df.groupby(pd.Grouper(key='date', freq=freq_str))['amount'].sum().reset_index()
+
+    # Simple linear prediction
+    x = np.arange(len(group_df))
+    y = group_df['amount'].values
+
+    if len(x) > 1:
+        z = np.polyfit(x, y, 1)
+        p = np.poly1d(z)
+
+        # Predict next periods (same amount as historical)
+        future_x = np.arange(len(x), len(x) * 2)
+        future_y = p(future_x)
+
+        # Generate future dates
+        last_date = group_df['date'].max()
+        if is_monthly:
+            future_dates = [last_date + pd.DateOffset(months=i) for i in range(1, len(future_x) + 1)]
+        else:
+            future_dates = [last_date + pd.Timedelta(days=i) for i in range(1, len(future_x) + 1)]
+    else:
+        future_x = []
+        future_y = []
+        future_dates = []
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    width = 20 if is_monthly else 0.8
+    ax.bar(group_df['date'], group_df['amount'], width=width, color='blue', alpha=0.7, label='Фактичні витрати')
+
+    if len(future_x) > 0:
+        ax.plot(future_dates, future_y, linestyle='--', color='orange', marker='x', linewidth=2, label='Прогноз тенденції')
+
+    if is_monthly:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    else:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+
+    fig.autofmt_xdate()
+
+    ax.set_ylabel('Сума')
+    ax.set_title('Тенденція витрат та прогноз')
+    ax.legend()
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf

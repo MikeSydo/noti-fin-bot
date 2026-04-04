@@ -5,7 +5,7 @@ from models.expense import Expense
 from models.category import Category
 from models.account import Account
 from datetime import datetime
-from services.analytics import calculate_statistics, analyze_budget_exceeded, compare_periods
+from services.analytics import calculate_statistics
 
 @pytest.fixture
 def mock_categories():
@@ -50,48 +50,4 @@ def test_calculate_statistics(mock_expenses, mock_categories):
     # Check overbudget
     assert len(overbudget) == 0
 
-@pytest.mark.asyncio
-@patch("services.analytics.client")
-async def test_analyze_budget_exceeded_success(mock_client):
-    mock_response = MagicMock()
-    mock_response.text = "Ось рекомендації українською: не їсти стільки хліба."
-    mock_client.models.generate_content.return_value = mock_response
-
-    result = await analyze_budget_exceeded("Food: 50 excess")
-    assert "рекомендації українською" in result
-
-    mock_client.models.generate_content.assert_called_once()
-    called_args = mock_client.models.generate_content.call_args.kwargs
-    assert "Analyze the following expense categories" in called_args["contents"]
-    assert "in Ukrainian" in called_args["contents"]
-
-@pytest.mark.asyncio
-@patch("services.analytics.client")
-async def test_analyze_budget_exceeded_failure(mock_client):
-    mock_client.models.generate_content.side_effect = Exception("Network Error")
-
-    result = await analyze_budget_exceeded("Food: 50 excess")
-    assert result == "Не вдалося отримати рекомендації від AI."
-
-@pytest.mark.asyncio
-@patch("services.analytics.client")
-async def test_compare_periods_success(mock_client):
-    mock_response = MagicMock()
-    mock_response.text = "Аналіз: витрати зросли."
-    mock_client.models.generate_content.return_value = mock_response
-
-    result = await compare_periods("Current: 500", "Prev: 300")
-    assert result == "Аналіз: витрати зросли."
-
-    mock_client.models.generate_content.assert_called_once()
-    called_args = mock_client.models.generate_content.call_args.kwargs
-    assert "Compare expenses for two periods" in called_args["contents"]
-    assert "in Ukrainian" in called_args["contents"]
-
-@pytest.mark.asyncio
-@patch("services.analytics.client")
-async def test_compare_periods_failure(mock_client):
-    mock_client.models.generate_content.side_effect = Exception("Network Error")
-
-    result = await compare_periods("Current: 500", "Prev: 300")
-    assert result == "Не вдалося отримати аналіз від AI."
+#Removed old analyze_budget_exceeded and compare_periods tests since these functions were superseded by graphical implementations
