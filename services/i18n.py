@@ -1,11 +1,14 @@
 import json
 import os
 import logging
-from typing import Dict, Any
+from typing import Dict
+from sqlalchemy.future import select
+from database import AsyncSessionLocal
+from models.user import User
 
 logger = logging.getLogger(__name__)
 
-USER_LANGS_FILE = "user_langs.json"
+# USER_LANGS_FILE = "user_langs.json"
 LOCALES_DIR = "locales"
 
 class I18n:
@@ -13,7 +16,7 @@ class I18n:
         self.langs: Dict[str, Dict[str, str]] = {}
         self.user_langs: Dict[int, str] = {}
         self._load_locales()
-        self._load_user_langs()
+        # Initial user langs are loaded asynchronously at bot startup
 
     def _load_locales(self):
         for lang_code in ["en", "uk"]:
@@ -24,25 +27,28 @@ class I18n:
             else:
                 self.langs[lang_code] = {}
 
-    def _load_user_langs(self):
-        if os.path.exists(USER_LANGS_FILE):
-            try:
-                with open(USER_LANGS_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self.user_langs = {int(k): v for k, v in data.items()}
-            except Exception as e:
-                logger.error(f"Failed to load user languages: {e}")
-
-    def _save_user_langs(self):
+    async def load_user_langs_from_db(self):
         try:
-            with open(USER_LANGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(self.user_langs, f, ensure_ascii=False, indent=2)
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(select(User.telegram_id, User.language))
+                users = result.fetchall()
+                for telegram_id, language in users:
+                    if language:
+                        self.user_langs[telegram_id] = language
         except Exception as e:
-            logger.error(f"Failed to save user languages: {e}")
+            logger.error(f"Failed to load user languages from DB: {e}")
 
-    def set_user_lang(self, user_id: int, lang_code: str):
+    async def _save_user_lang_to_db(self, user_id: int, lang_code: str):
+        try:
+            from services.user_service import create_or_update_user
+            await create_or_update_user(user_id, language=lang_code)
+        except Exception as e:
+            logger.error(f"Failed to save user {user_id} language to DB: {e}")
+
+    async def set_user_lang(self, user_id: int, lang_code: str):
+        """Async method to set language and save it to the DB."""
         self.user_langs[user_id] = lang_code
-        self._save_user_langs()
+        await self._save_user_lang_to_db(user_id, lang_code)
 
     def get_user_lang(self, user_id: int) -> str | None:
         return self.user_langs.get(user_id)

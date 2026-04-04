@@ -43,9 +43,9 @@ async def cmd_change_language(message: Message, state: FSMContext):
 async def process_language_selection(message: Message):
     user_id = message.from_user.id
     if message.text == "🇬🇧 English":
-        i18n.set_user_lang(user_id, "en")
+        await i18n.set_user_lang(user_id, "en")
     else:
-        i18n.set_user_lang(user_id, "uk")
+        await i18n.set_user_lang(user_id, "uk")
 
     await message.answer(
         i18n.get_text('msg_main_menu', user_id),
