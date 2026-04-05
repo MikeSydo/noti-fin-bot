@@ -1,141 +1,110 @@
-from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.state import State, StatesGroup, default_state
-from aiogram.fsm.context import FSMContext
+import logging
 from datetime import datetime
-from services.receipt_parser import parse_receipt
-from services.notion_writer import notion_writer
-from app.keyboards.inline import get_accounts_keyboard
-from models.expense import Expense
-from models.group_expense import GroupExpense
-import filetype
+from aiogram import Router, F
+from aiogram.types import Message
+from aiogram.fsm.context import FSMContext
+from bot import bot
+from decimal import Decimal
+
 from services.i18n import i18n
+from services.notion_writer import NotionWriter
+from services.receipt_parser import parse_receipt
+from models.group_expense import GroupExpense
 
 router = Router()
 
-class ScanReceiptState(StatesGroup):
-    waiting_for_account = State()
+logger = logging.getLogger(__name__)
 
-@router.message(F.photo, default_state)
-async def get_receipt(message: Message, state: FSMContext, bot: Bot):
+
+@router.message(F.photo | F.document)
+async def handle_receipt_image(message: Message, state: FSMContext, notion_writer: NotionWriter):
+    """Handle image uploaded outside of any FSM state (meaning it's probably a receipt to parse)."""
+    current_state = await state.get_state()
+    if current_state is not None:
+        return
+
     user_id = message.from_user.id
-    wait_msg = await message.answer(i18n.get_text('rcp_analyzing', user_id))
-    photo = message.photo[-1]
-    
-    # Download photo
-    file_info = await bot.get_file(photo.file_id)
-    downloaded_file = await bot.download_file(file_info.file_path)
-    image_bytes = downloaded_file.read()
-    
-    # Verify it is an image
-    kind = filetype.guess(image_bytes)
-    if not kind or not kind.mime.startswith('image/'):
-        await wait_msg.delete()
-        await message.answer(i18n.get_text('rcp_invalid_file', user_id))
-        return
-        
-    categories = await notion_writer.get_categories()
-    category_names = [cat.name for cat in categories]
-    
-    parsed_receipt = await parse_receipt(image_bytes, category_names, lang_code=i18n.get_user_lang(user_id) or "uk")
-    await wait_msg.delete()
-    if not parsed_receipt:
-        await message.answer(i18n.get_text('rcp_parsing_failed', user_id))
-        return
-        
-    if not parsed_receipt.is_receipt:
-        await message.answer(i18n.get_text('rcp_not_receipt', user_id))
-        return
+    # Using existing localization keys from uk.json/en.json
+    processing_msg = await message.answer(i18n.get_text('rcp_analyzing', user_id))
 
-    # Ask for account
-    accounts = await notion_writer.get_accounts()
-    if not accounts:
-        await message.answer(i18n.get_text('rcp_no_accounts', user_id))
-        return
-        
-    await state.update_data(
-        parsed_receipt=parsed_receipt.model_dump(),
-    )
-    await state.set_state(ScanReceiptState.waiting_for_account)
-    await message.answer(
-        i18n.get_text('rcp_identified', user_id, store_name=parsed_receipt.store_name, total_amount=parsed_receipt.total_amount, items_count=len(parsed_receipt.items)),
-        reply_markup=await get_accounts_keyboard(accounts, include_skip=True, user_id=user_id)
-    )
-
-@router.callback_query(F.data.startswith('select_account_'), ScanReceiptState.waiting_for_account)
-async def process_receipt_account_selection(callback: CallbackQuery, state: FSMContext):
-    account_id = callback.data.split('_')[2]
-    await handle_save_receipt(callback.message, state, account_id, callback.from_user.id)
-    await callback.answer()
-
-@router.callback_query(F.data == 'skip_account', ScanReceiptState.waiting_for_account)
-async def process_receipt_account_skip(callback: CallbackQuery, state: FSMContext):
-    await handle_save_receipt(callback.message, state, None, callback.from_user.id)
-    await callback.answer()
-
-async def handle_save_receipt(message: Message, state: FSMContext, account_id: str | None, user_id: int):
-    data = await state.get_data()
-    parsed_dict = data.get("parsed_receipt")
-    
-    if not parsed_dict:
-        await message.answer(i18n.get_text('rcp_session_expired', user_id))
-        await state.clear()
-        return
-        
-    saving_msg = await message.answer(i18n.get_text('rcp_saving', user_id))
-
-    account = None
-    if account_id:
-        account = await notion_writer.get_account(account_id)
-        
-    categories = await notion_writer.get_categories()
-    cat_map = {c.name.lower(): c for c in categories}
-    
-    expense_ids = []
-    
-    # Save expenses
-    for item in parsed_dict["items"]:
-        cat_obj = None
-        if item.get("category_name"):
-            cat_obj = cat_map.get(item["category_name"].lower())
-            
-        try:
-            item_date = datetime.strptime(parsed_dict["date"], "%d-%m-%Y")
-        except:
-            item_date = datetime.now()
-            
-        exp = Expense(
-            name=f"{item['name']} ({parsed_dict['store_name']})",
-            amount=item["amount"],
-            date=item_date,
-            account=account,
-            category=cat_obj
-        )
-        exp_id = await notion_writer.add_expense(exp)
-        if exp_id:
-            expense_ids.append(exp_id)
-            
-    # Save group expense
     try:
-        group_date = datetime.strptime(parsed_dict["date"], "%d-%m-%Y")
-    except:
-        group_date = datetime.now()
-        
-    group_name = parsed_dict.get("group_expense_name", f"Receipt from {parsed_dict['store_name']}")
-        
-    group_exp = GroupExpense(
-        name=group_name,
-        amount=parsed_dict["total_amount"],
-        date=group_date,
-        account=account,
-        expenses_relations=expense_ids
-    )
-    
-    success = await notion_writer.add_group_expense(group_exp)
-    await saving_msg.delete()
-    if success:
-        await message.answer(i18n.get_text('rcp_saved', user_id, store_name=parsed_dict['store_name'], items_count=len(expense_ids)))
-    else:
-        await message.answer(i18n.get_text('rcp_save_error', user_id))
+        file_id = None
+        if message.photo:
+            file_id = message.photo[-1].file_id
+        elif message.document:
+            file_id = message.document.file_id
 
-    await state.clear()
+        if not file_id:
+            await processing_msg.edit_text(i18n.get_text('rcp_invalid_file', user_id))
+            return
+
+        file = await bot.get_file(file_id)
+        file_bytes = await bot.download_file(file.file_path)
+
+        categories = await notion_writer.get_categories()
+        category_names = [cat.name for cat in categories]
+
+        # Use Gemini parser
+        lang_code = i18n.get_user_lang(user_id) or "uk"
+        parsed_data = await parse_receipt(file_bytes.read(), category_names, lang_code=lang_code)
+
+        if not parsed_data or not parsed_data.is_receipt:
+            await processing_msg.edit_text(i18n.get_text('rcp_not_receipt', user_id))
+            return
+
+        # Map ParsedReceipt to GroupExpense model
+        try:
+            # Parse date from DD-MM-YYYY
+            expense_date = datetime.strptime(parsed_data.date, "%d-%m-%Y")
+        except Exception:
+            expense_date = datetime.now()
+
+        # Find best category match from existing objects
+        top_category = None
+        if parsed_data.items and parsed_data.items[0].category_name:
+            cat_name = parsed_data.items[0].category_name
+            top_category = next((c for c in categories if c.name == cat_name), None)
+
+        accounts = await notion_writer.get_accounts()
+        default_account = accounts[0] if accounts else None
+
+        group_expense = GroupExpense(
+            name=parsed_data.group_expense_name,
+            amount=Decimal(str(parsed_data.total_amount)),
+            date=expense_date,
+            account=default_account,
+            category=top_category,
+            receipt_url=f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
+        )
+
+        success = await notion_writer.add_group_expense(group_expense)
+
+        if success:
+            await processing_msg.delete()
+            skipped_text = i18n.get_text('txt_skipped', user_id)
+            display_amount = f"{group_expense.amount:.2f}"
+            account_name = group_expense.account.name if group_expense.account else skipped_text
+            category_name = group_expense.category.name if group_expense.category else skipped_text
+            
+            await message.answer(
+                i18n.get_text('rcp_saved', user_id, 
+                              store_name=parsed_data.store_name, 
+                              items_count=len(parsed_data.items)),
+                parse_mode="Markdown"
+            )
+            # Show the saved data details using grexp_saved template
+            await message.answer(
+                i18n.get_text('grexp_saved', user_id, 
+                              name=group_expense.name, 
+                              amount=display_amount, 
+                              date=group_expense.date.strftime("%d.%m.%Y"),
+                              account=account_name, 
+                              category=category_name),
+                parse_mode="Markdown"
+            )
+        else:
+            await processing_msg.edit_text(i18n.get_text('rcp_save_error', user_id))
+
+    except Exception as e:
+        logger.error(f"Failed to process receipt: {e}")
+        await processing_msg.edit_text(i18n.get_text('rcp_save_error', user_id))
