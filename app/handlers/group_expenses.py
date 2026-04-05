@@ -233,14 +233,11 @@ async def process_receipt_document(message: Message, state: FSMContext, notion_w
         elif message.document:
             file_id = message.document.file_id
 
-        if not file_id:
-            await message.answer(i18n.get_text('grexp_load_failed', user_id))
-            return
-
-        file = await bot.get_file(file_id)
-        # Assuming you have some secure storage here; for now, we'll just mock it or skip
-        # For Telegram URL (note: expires! Only for temporary use or demonstration)
-        file_url = f"https://api.telegram.org/file/bot{bot.token}/{file.file_path}"
+        # We simulate saving but keep the receipt URL as None 
+        # so Notion doesn't get dead Telegram links or complain.
+        # TODO: Implement permanent upload (AWS S3 / R2) here to save actual receipt images.
+        file_url = None
+        
         await state.update_data(receipt_url=file_url)
 
         await message.answer(i18n.get_text('grexp_receipt_saved', user_id))
@@ -342,7 +339,8 @@ async def save_group_expense(message: Message, state: FSMContext, notion_writer:
             date=data["date"],
             account=account if account is not None else None,
             category=category if category is not None else None,
-            receipt_url=data.get("receipt_url")
+            receipt_url=data.get("receipt_url"),
+            expenses_relations=selected_expenses_ids
         )
 
         success = await notion_writer.add_group_expense(expense)
