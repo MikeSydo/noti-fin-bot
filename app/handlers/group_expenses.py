@@ -1,7 +1,7 @@
 import logging
 
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, Document, PhotoSize
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
@@ -377,7 +377,7 @@ class DeleteGroupExpenseState(StatesGroup):
     waiting_for_selection = State()
 
 
-@router.message(F.text.in_(i18n.get_all_translations('btn_del_grexpense')))
+@router.message(F.text.in_(i18n.get_all_translations('btn_del_group_expense')))
 async def start_delete_group_expense(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Start logic to remove group expense from notion db."""
     user_id = message.from_user.id

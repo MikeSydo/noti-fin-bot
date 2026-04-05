@@ -47,6 +47,7 @@ class I18n:
 
     async def set_user_lang(self, user_id: int, lang_code: str):
         """Async method to set language and save it to the DB."""
+        logger.info(f"Setting language for user {user_id} to '{lang_code}'")
         self.user_langs[user_id] = lang_code
         await self._save_user_lang_to_db(user_id, lang_code)
 
@@ -56,6 +57,7 @@ class I18n:
     def get_text(self, key: str, user_id: int = None, lang_code: str = None, **kwargs) -> str:
         code = lang_code or (self.get_user_lang(user_id) if user_id else "uk")
         if code not in self.langs:
+            logger.warning(f"Language code '{code}' not found. Defaulting to 'uk'.")
             code = "uk"
 
         text = self.langs.get(code, {}).get(key)

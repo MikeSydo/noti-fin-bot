@@ -111,15 +111,17 @@ async def cmd_change_language(message: Message, state: FSMContext):
 async def process_language_selection(message: Message):
     user_id = message.from_user.id
     if message.text == "🇬🇧 English":
-        await i18n.set_user_lang(user_id, "en")
+        lang = "en"
     else:
-        await i18n.set_user_lang(user_id, "uk")
+        lang = "uk"
+    
+    await i18n.set_user_lang(user_id, lang)
 
     # After language selection, check if Notion is connected
     user = await get_user(user_id)
     if user and user.is_notion_connected and user.has_databases:
         await message.answer(
-            i18n.get_text('msg_main_menu', user_id),
+            i18n.get_text('msg_main_menu', user_id, lang_code=lang),
             reply_markup=await get_main_menu(user_id)
         )
     else:
@@ -127,13 +129,13 @@ async def process_language_selection(message: Message):
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(
-                    text=i18n.get_text('btn_connect_notion', user_id),
+                    text=i18n.get_text('btn_connect_notion', user_id, lang_code=lang),
                     url=oauth_url
                 )]
             ]
         )
         await message.answer(
-            i18n.get_text('msg_notion_not_connected', user_id),
+            i18n.get_text('msg_notion_not_connected', user_id, lang_code=lang),
             reply_markup=keyboard,
             parse_mode="Markdown",
         )

@@ -11,7 +11,11 @@ async def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
         keyboard=[
             [
                 KeyboardButton(text=i18n.get_text('btn_add_expense', user_id)),
-                KeyboardButton(text=i18n.get_text('btn_add_group_expense', user_id))
+                KeyboardButton(text=i18n.get_text('btn_del_expense', user_id)),
+            ],
+            [
+                KeyboardButton(text=i18n.get_text('btn_add_group_expense', user_id)),
+                KeyboardButton(text=i18n.get_text('btn_del_group_expense', user_id))
             ],
             [
                 KeyboardButton(text=i18n.get_text('btn_add_account', user_id)),

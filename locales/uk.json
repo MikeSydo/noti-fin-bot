@@ -150,5 +150,33 @@
   "msg_disconnected": "Ваш Notion успішно відключено! Використайте /connect, щоб підключитись знову.",
   "msg_disconnect_error": "Виникла помилка під час відключення або ви ще не підключені.",
   "msg_notion_connected_success": "🎉 Успішно! Ваш Notion підключено, і бази даних налаштовано.",
-  "msg_notion_connect_failed": "❌ Не вдалося підключитись. Здається ви не закінчили процес, або виникла помилка на сервері."
+  "msg_notion_connect_failed": "❌ Не вдалося підключитись. Здається ви не закінчили процес, або виникла помилка на сервері.",
+  "msg_notion_connected_no_dbs": "⚠️ Notion підключено, але мені не вдалося знайти потрібні бази даних у вибраному шаблоні. Будь ласка, переконайтеся, що ви додали шаблон, та спробуйте /disconnect і /connect знову.",
+
+  "msg_analytics_menu": "📊 Оберіть тип аналітики:",
+  "msg_select_month": "📅 Оберіть місяць:",
+  "msg_generating_report": "⏳ Генерую звіт...",
+  "msg_no_data_for_period": "Немає даних за обраний період.",
+  "msg_report_error": "❌ Виникла помилка при генерації звіту.",
+  "msg_select_comparison_period": "📈 Оберіть період для порівняння:",
+  "msg_no_data_for_comparison": "Немає даних для порівняння за обрані періоди.",
+  "msg_stats_caption": "📊 Статистика за {month}",
+  "msg_comparison_caption": "{current_label}: {current_total}\n{previous_label}: {previous_total}\nРізниця: {diff} ({percentage})",
+
+  "graph_category_breakdown": "Витрати за категоріями — {month}",
+  "graph_weekly_spending": "Витрати по тижнях — {month}",
+  "graph_spending_comparison": "Порівняння витрат",
+
+  "label_today": "Сьогодні",
+  "label_yesterday": "Вчора",
+  "label_this_week": "Цей тиждень",
+  "label_last_week": "Минулий тиждень",
+  "label_this_month": "Цей місяць",
+  "label_last_month": "Минулий місяць",
+
+  "grexp_uploading_receipt": "Завантажую чек...",
+  "grexp_load_failed": "Не вдалось завантажити файл.",
+  "grexp_no_expenses_available": "Немає доступних витрат для зв'язування.",
+  "grexp_choose_expenses": "Виберіть пов'язані витрати:",
+  "grexp_no_expenses": "Спільних витрат не знайдено."
 }

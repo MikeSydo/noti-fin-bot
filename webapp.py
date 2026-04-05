@@ -41,7 +41,7 @@ async def handle_notion_oauth(request: web.Request) -> web.Response:
             else:
                 await bot.send_message(
                     chat_id=telegram_id,
-                    text="⚠️ Notion підключено, але мені не вдалося знайти потрібні бази даних у вибраному шаблоні. Будь ласка, переконайтеся, що ви додали шаблон, та спробуйте /disconnect і /connect знову.",
+                    text=i18n.get_text('msg_notion_connected_no_dbs', telegram_id),
                 )
         except Exception as e:
             logger.error(f"Failed to send success message to {telegram_id}: {e}")

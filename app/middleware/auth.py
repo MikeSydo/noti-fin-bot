@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 BYPASS_COMMANDS = {"/start", "/help", "/cancel", "/connect", "/disconnect"}
 
 # Button texts that don't require Notion (language selection)
-BYPASS_BUTTON_PREFIXES = ("🇺🇦", "🇬🇧")
+BYPASS_BUTTON_PREFIXES = ("🇺🇦", "🇬🇧", "❌", "⬅️")
 
 
 class AuthMiddleware(BaseMiddleware):

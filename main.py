@@ -57,6 +57,8 @@ async def main():
     dp.include_router(reports.router)
 
     await set_bot_commands()
+    logging.info("Bot commands updated in the menu.")
+
 
     # Start the web server concurrently
     asyncio.create_task(start_web_server())
