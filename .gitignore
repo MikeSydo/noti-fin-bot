@@ -9,7 +9,6 @@ __pycache__/
 # IDE
 .idea/
 
-user_langs.json
 .agents
 
 # SSL certificates (if any)
