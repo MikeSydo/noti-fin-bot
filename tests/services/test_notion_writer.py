@@ -154,9 +154,14 @@ def mock_writer():
     """Create a mock notion writer"""
     with patch('services.notion_writer.AsyncClient') as MockAsyncClient:
         mock_client_instance = MockAsyncClient.return_value
-        writer = NotionWriter()
+        writer = NotionWriter(
+            access_token="fake_token", 
+            accounts_db_id="test_db_id", 
+            expenses_db_id="test_expenses_db_id", 
+            group_expenses_db_id="test_group_expenses_db_id", 
+            categories_db_id="test_categories_db_id"
+        )
         writer.client = mock_client_instance
-        writer.accounts_db_id = "test_db_id"
         yield writer, mock_client_instance
 
 @pytest.mark.asyncio

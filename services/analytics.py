@@ -147,3 +147,55 @@ def generate_trend_graph(expenses: List[Expense], year: int, month: int, user_id
     plt.close(fig)
     buf.seek(0)
     return buf
+
+def generate_category_pie_chart(expenses: List[Expense], title: str, save_path: str):
+    """Generates a pie chart of expenses by category and saves it to disk."""
+    category_totals = {}
+    for exp in expenses:
+        cat_name = exp.category.name if exp.category else "Uncategorized"
+        category_totals[cat_name] = category_totals.get(cat_name, Decimal('0')) + exp.amount
+        
+    labels = list(category_totals.keys())
+    sizes = [float(v) for v in category_totals.values()]
+    
+    fig, ax = plt.subplots(figsize=(8, 8))
+    if sizes and sum(sizes) > 0:
+        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
+        ax.axis('equal')
+    else:
+        ax.text(0.5, 0.5, 'No Data', horizontalalignment='center', verticalalignment='center')
+    plt.title(title)
+    plt.savefig(save_path, format='png', bbox_inches='tight')
+    plt.close(fig)
+
+def generate_weekly_bar_chart(expenses: List[Expense], year: int, month: int, title: str, save_path: str):
+    """Generates a weekly bar chart for a given month and saves it to disk."""
+    import calendar
+    _, days_in_month = calendar.monthrange(year, month)
+    
+    # Simple division into roughly 4 weeks (1-7, 8-14, 15-21, 22-end)
+    weeks = [0, 0, 0, 0]
+    for exp in expenses:
+        if exp.date.year == year and exp.date.month == month:
+            d = exp.date.day
+            if d <= 7: weeks[0] += float(exp.amount)
+            elif d <= 14: weeks[1] += float(exp.amount)
+            elif d <= 21: weeks[2] += float(exp.amount)
+            else: weeks[3] += float(exp.amount)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(['Week 1', 'Week 2', 'Week 3', f'Week 4\n(to {days_in_month})'], weeks, color='skyblue')
+    plt.title(title)
+    plt.ylabel('Amount')
+    plt.savefig(save_path, format='png', bbox_inches='tight')
+    plt.close(fig)
+
+def generate_comparison_bar_chart(current_total: float, previous_total: float, current_label: str, previous_label: str, title: str, save_path: str):
+    """Generates a simple comparison bar chart and saves it to disk."""
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.bar([previous_label, current_label], [float(previous_total), float(current_total)], color=['gray', 'blue'])
+    plt.title(title)
+    plt.ylabel('Total Amount')
+    plt.savefig(save_path, format='png', bbox_inches='tight')
+    plt.close(fig)
+

@@ -4,8 +4,17 @@
 # Python
 __pycache__/
 .venv/
+.pytest_cache
 
 # IDE
 .idea/
 
 user_langs.json
+.agents
+
+# SSL certificates (if any)
+*.pem
+*.key
+
+# Reports directory
+reports_temp/

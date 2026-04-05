@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="ignore" # allow extra fields like the old ones if user hasn't removed them
     )
 
     # Telegram
@@ -14,12 +15,17 @@ class Settings(BaseSettings):
     # Gemini
     GEMINI_API_KEY: str
 
-    # Notion
-    NOTION_API_KEY: str
-    NOTION_ACCOUNTS_DB_ID: str
-    NOTION_EXPENSES_DB_ID: str
-    NOTION_GROUP_EXPENSES_DB_ID: str
-    NOTION_CATEGORIES_DB_ID: str
+    # Database
+    DATABASE_URL: str
+
+    # Security
+    FERNET_KEY: str
+
+    # Notion OAuth
+    NOTION_CLIENT_ID: str
+    NOTION_CLIENT_SECRET: str
+    NOTION_REDIRECT_URI: str
+
 
 # Singleton instance
 settings = Settings()

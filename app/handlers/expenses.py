@@ -1,4 +1,4 @@
-import logging 
+import logging
 
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
@@ -9,14 +9,15 @@ from datetime import datetime
 
 from models.expense import Expense
 from app.keyboards.reply import get_main_menu
-from services.notion_writer import notion_writer
 from app.keyboards.inline import get_accounts_keyboard, get_today_date_keyboard, get_categories_keyboard, \
     get_expenses_keyboard
 from services.i18n import i18n
+from services.notion_writer import NotionWriter
 
 router = Router()
 
 logger = logging.getLogger(__name__)
+
 
 class AddExpenseState(StatesGroup):
     """FSM state for expense."""
@@ -26,8 +27,9 @@ class AddExpenseState(StatesGroup):
     waiting_for_account = State()
     waiting_for_category = State()
 
+
 @router.message(F.text.in_(i18n.get_all_translations('btn_add_expense')))
-async def start_add_account(message: Message, state: FSMContext):
+async def start_add_expense(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Start logic to add expense in notion db."""
     user_id = message.from_user.id
     await state.clear()
@@ -36,6 +38,7 @@ async def start_add_account(message: Message, state: FSMContext):
         parse_mode="Markdown",
     )
     await state.set_state(AddExpenseState.waiting_for_name)
+
 
 @router.message(AddExpenseState.waiting_for_name)
 async def handle_expense_name_input(message: Message, state: FSMContext):
@@ -52,6 +55,7 @@ async def handle_expense_name_input(message: Message, state: FSMContext):
         parse_mode="Markdown",
     )
     await state.set_state(AddExpenseState.waiting_for_amount)
+
 
 @router.message(AddExpenseState.waiting_for_amount)
 async def handle_amount_input(message: Message, state: FSMContext):
@@ -76,27 +80,28 @@ async def handle_amount_input(message: Message, state: FSMContext):
         reply_markup=await get_today_date_keyboard(user_id))
     await state.set_state(AddExpenseState.waiting_for_date)
 
+
 @router.callback_query(F.data == 'today_date', AddExpenseState.waiting_for_date)
-async def hande_today_date(callback: CallbackQuery, state: FSMContext):
-    """Використання поточної дати та часу."""
+async def handle_today_date(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
+    """Use current date and time."""
     user_id = callback.from_user.id
     await callback.answer()
-    
+
     now = datetime.now()
     await state.update_data(date=now.isoformat())
-    
+
     await callback.message.answer(i18n.get_text('exp_date', user_id, date=now.strftime("%d.%m.%Y %H:%M")))
 
-    await ask_for_account(callback.message, state, user_id)
+    await ask_for_account(callback.message, state, notion_writer, user_id)
+
 
 @router.message(AddExpenseState.waiting_for_date)
-async def handle_date_input(message: Message, state: FSMContext):
+async def handle_date_input(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Handle custom date input."""
     date_str = message.text.strip()
     user_id = message.from_user.id
 
     try:
-        # Parse date in format DD.MM.YYYY
         parsed_date = datetime.strptime(date_str, "%d.%m.%Y")
     except ValueError:
         await message.answer(i18n.get_text('exp_invalid_date', user_id))
@@ -105,10 +110,10 @@ async def handle_date_input(message: Message, state: FSMContext):
     await state.update_data(date=parsed_date.isoformat())
     await message.answer(i18n.get_text('exp_date', user_id, date=parsed_date.strftime("%d.%m.%Y")))
 
-    await ask_for_account(message, state, user_id)
+    await ask_for_account(message, state, notion_writer, user_id)
 
 
-async def ask_for_account(message: Message, state: FSMContext, user_id: int = None):
+async def ask_for_account(message: Message, state: FSMContext, notion_writer: NotionWriter, user_id: int = None):
     """Ask for account."""
     if user_id is None:
         user_id = message.from_user.id if message.from_user else state.key.user_id
@@ -117,35 +122,38 @@ async def ask_for_account(message: Message, state: FSMContext, user_id: int = No
     if not accounts:
         await message.answer(i18n.get_text('exp_no_accounts', user_id))
         await state.update_data(account=None)
-        await ask_for_category(message, state, user_id)
+        await ask_for_category(message, state, notion_writer, user_id)
         return
-        
+
     await message.answer(
         i18n.get_text('exp_choose_account', user_id),
         reply_markup=await get_accounts_keyboard(accounts, include_skip=True, user_id=user_id)
     )
     await state.set_state(AddExpenseState.waiting_for_account)
 
+
 @router.callback_query(F.data.startswith('select_account_'), AddExpenseState.waiting_for_account)
-async def process_account_selection(callback: CallbackQuery, state: FSMContext):
+async def process_account_selection(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle account selection."""
     user_id = callback.from_user.id
     await callback.answer()
     account_id = callback.data.replace('select_account_', '')
     account = await notion_writer.get_account(account_id)
     await state.update_data(account=account)
-    
-    await ask_for_category(callback.message, state, user_id)
+
+    await ask_for_category(callback.message, state, notion_writer, user_id)
+
 
 @router.callback_query(F.data == 'skip_account', AddExpenseState.waiting_for_account)
-async def process_skip_account(callback: CallbackQuery, state: FSMContext):
+async def process_skip_account(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle skipping account selection."""
     user_id = callback.from_user.id
     await callback.answer()
     await state.update_data(account=None)
-    await ask_for_category(callback.message, state, user_id)
+    await ask_for_category(callback.message, state, notion_writer, user_id)
 
-async def ask_for_category(message: Message, state: FSMContext, user_id: int = None):
+
+async def ask_for_category(message: Message, state: FSMContext, notion_writer: NotionWriter, user_id: int = None):
     """Ask for category."""
     if user_id is None:
         user_id = message.from_user.id if message.from_user else state.key.user_id
@@ -154,7 +162,7 @@ async def ask_for_category(message: Message, state: FSMContext, user_id: int = N
     if not categories:
         await message.answer(i18n.get_text('exp_no_categories', user_id))
         await state.update_data(category=None)
-        await save_expense(message, state, user_id)
+        await save_expense(message, state, notion_writer, user_id)
         return
 
     await message.answer(
@@ -164,8 +172,9 @@ async def ask_for_category(message: Message, state: FSMContext, user_id: int = N
 
     await state.set_state(AddExpenseState.waiting_for_category)
 
+
 @router.callback_query(F.data.startswith('select_category_'), AddExpenseState.waiting_for_category)
-async def process_category_selection(callback: CallbackQuery, state: FSMContext):
+async def process_category_selection(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle category selection."""
     user_id = callback.from_user.id
     await callback.answer()
@@ -173,17 +182,19 @@ async def process_category_selection(callback: CallbackQuery, state: FSMContext)
     category = await notion_writer.get_category(category_id)
     await state.update_data(category=category)
 
-    await save_expense(callback.message, state, user_id)
+    await save_expense(callback.message, state, notion_writer, user_id)
+
 
 @router.callback_query(F.data == 'skip_category', AddExpenseState.waiting_for_category)
-async def process_skip_category(callback: CallbackQuery, state: FSMContext):
+async def process_skip_category(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle skipping category selection."""
     user_id = callback.from_user.id
     await callback.answer()
     await state.update_data(category=None)
-    await save_expense(callback.message, state, user_id)
+    await save_expense(callback.message, state, notion_writer, user_id)
 
-async def save_expense(message: Message, state: FSMContext, user_id: int = None):
+
+async def save_expense(message: Message, state: FSMContext, notion_writer: NotionWriter, user_id: int = None):
     """Save expense to Notion."""
     data = await state.get_data()
     if user_id is None:
@@ -222,19 +233,21 @@ async def save_expense(message: Message, state: FSMContext, user_id: int = None)
             )
 
     except Exception as e:
-        logger.error(f"Failed to save account: {e}")
+        logger.error(f"Failed to save expense: {e}")
         await message.answer(
             i18n.get_text('exp_save_error', user_id),
             reply_markup=await get_main_menu(user_id),
         )
+
 
 class DeleteExpenseState(StatesGroup):
     """FSM state for expense."""
     waiting_for_name = State()
     waiting_for_selection = State()
 
+
 @router.message(F.text.in_(i18n.get_all_translations('btn_del_expense')))
-async def start_delete_expense(message: Message, state: FSMContext):
+async def start_delete_expense(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Start logic to remove expense from notion db."""
     user_id = message.from_user.id
     await state.clear()
@@ -244,8 +257,9 @@ async def start_delete_expense(message: Message, state: FSMContext):
     )
     await state.set_state(DeleteExpenseState.waiting_for_name)
 
+
 @router.message(DeleteExpenseState.waiting_for_name)
-async def handle_expense_name_input_for_delete(message: Message, state: FSMContext):
+async def handle_expense_name_input_for_delete(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Handle expense name find."""
     name = message.text.strip()
     user_id = message.from_user.id
@@ -256,21 +270,22 @@ async def handle_expense_name_input_for_delete(message: Message, state: FSMConte
     searching_msg = await message.answer(i18n.get_text('exp_searching', user_id))
 
     id_list = await notion_writer.find_expenses(name)
-    
+
     await searching_msg.delete()
 
     if not id_list:
         await message.answer(i18n.get_text('exp_not_found', user_id))
         return
-        
+
     if len(id_list) == 1:
         await state.update_data(id=id_list[0], name=name)
-        await process_delete_expense(message, state, user_id)
+        await process_delete_expense(message, state, notion_writer, user_id)
     else:
         await state.update_data(name=name, id_list=id_list)
-        await show_expenses(message, state, user_id=user_id)
+        await show_expenses(message, state, notion_writer, user_id=user_id)
 
-async def show_expenses(message: Message, state: FSMContext, page: int = 0, edit_message: bool = False, user_id: int = None):
+
+async def show_expenses(message: Message, state: FSMContext, notion_writer: NotionWriter, page: int = 0, edit_message: bool = False, user_id: int = None):
     data = await state.get_data()
     if user_id is None:
         user_id = message.from_user.id if message.from_user else state.key.user_id
@@ -294,16 +309,18 @@ async def show_expenses(message: Message, state: FSMContext, page: int = 0, edit
         await message.answer(text, reply_markup=keyboard)
     await state.set_state(DeleteExpenseState.waiting_for_selection)
 
+
 @router.callback_query(F.data.startswith('exp_page_'), DeleteExpenseState.waiting_for_selection)
-async def process_expense_page_selection(callback: CallbackQuery, state: FSMContext):
+async def process_expense_page_selection(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle pagination for expenses list."""
     user_id = callback.from_user.id
     await callback.answer()
     page = int(callback.data.replace('exp_page_', ''))
-    await show_expenses(callback.message, state, page=page, edit_message=True, user_id=user_id)
+    await show_expenses(callback.message, state, notion_writer, page=page, edit_message=True, user_id=user_id)
+
 
 @router.callback_query(F.data.startswith('select_expense_'), DeleteExpenseState.waiting_for_selection)
-async def process_expense_selection(callback: CallbackQuery, state: FSMContext):
+async def process_expense_selection(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Handle expense selection."""
     user_id = callback.from_user.id
     await callback.answer()
@@ -311,10 +328,10 @@ async def process_expense_selection(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await state.update_data(id=expense_id, name=data.get('name', 'Витрата'))
 
-    await process_delete_expense(callback.message, state, user_id)
+    await process_delete_expense(callback.message, state, notion_writer, user_id)
 
 
-async def process_delete_expense(message: Message, state: FSMContext, user_id: int = None):
+async def process_delete_expense(message: Message, state: FSMContext, notion_writer: NotionWriter, user_id: int = None):
     """Handle expense deletion."""
     data = await state.get_data()
     if user_id is None:
@@ -341,7 +358,7 @@ async def process_delete_expense(message: Message, state: FSMContext, user_id: i
                 reply_markup=await get_main_menu(user_id)
             )
     except Exception as e:
-        logger.error(f"Failed to delete account: {e}")
+        logger.error(f"Failed to delete expense: {e}")
         await message.answer(
             i18n.get_text('exp_delete_error', user_id),
             reply_markup=await get_main_menu(user_id),

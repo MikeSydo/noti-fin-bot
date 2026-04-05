@@ -131,7 +131,7 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
         # Format date for better display, e.g. DD-MM-YYYY
         date_str = expense.date[:10] if isinstance(expense.date, str) else expense.date.strftime("%d-%m-%Y")
         is_selected = expense.id in selected_ids
-        check_icon = "[ ]" if is_selected else "[*]"
+        check_icon = "✅" if is_selected else "⬜"
         
         builder.add(
             InlineKeyboardButton(
