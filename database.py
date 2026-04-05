@@ -14,9 +14,10 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             logger.info("Initializing database schema...")
-            # Import models here so Base knows about them before creation
+            # Import all models so Base knows about them before creation
             import models.user  # noqa: F401
             await conn.run_sync(Base.metadata.create_all)
             logger.info("Database initialized successfully.")
     except Exception as e:
         logger.error(f"Error initializing DB: {e}")
+        raise

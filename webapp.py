@@ -1,16 +1,18 @@
-import aiohttp
 import logging
 from aiohttp import web
-from config import settings
-from services.security import encrypt_token
-from services.user_service import create_or_update_user
+from bot import bot
+
+from services.oauth_service import process_oauth_callback, validate_oauth_state
+from services.i18n import i18n
+from app.keyboards.reply import get_main_menu
 
 logger = logging.getLogger(__name__)
+
 
 async def handle_notion_oauth(request: web.Request) -> web.Response:
     """Handle OAuth 2.0 callback from Notion."""
     code = request.query.get("code")
-    state = request.query.get("state")  # Should contain Telegram User ID
+    state = request.query.get("state")
     error = request.query.get("error")
 
     if error:
@@ -19,55 +21,53 @@ async def handle_notion_oauth(request: web.Request) -> web.Response:
     if not code or not state:
         return web.Response(text="Missing 'code' or 'state' parameters", status=400)
 
-    try:
-        telegram_id = int(state)
-    except ValueError:
-        return web.Response(text="Invalid 'state' parameter", status=400)
+    # Validate CSRF state token and get user ID
+    telegram_id = await validate_oauth_state(state)
+    if not telegram_id:
+        return web.Response(text="Invalid or expired session. Please try connecting again from the bot.", status=400)
 
-    # Exchange code for access token
-    auth_url = "https://api.notion.com/v1/oauth/token"
-    auth_data = {
-        "grant_type": "authorization_code",
-        "code": code,
-        "redirect_uri": settings.NOTION_REDIRECT_URI
-    }
-    headers = {
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-    }
+    # Process OAuth callback (exchange token, store everything, discover databases)
+    success, has_dbs = await process_oauth_callback(code, telegram_id)
 
-    basic_auth = aiohttp.BasicAuth(
-        login=settings.NOTION_CLIENT_ID,
-        password=settings.NOTION_CLIENT_SECRET
-    )
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(auth_url, json=auth_data, headers=headers, auth=basic_auth) as resp:
-            response_data = await resp.json()
-
-            if resp.status != 200:
-                logger.error(f"Notion OAuth error: {response_data}")
-                return web.Response(text=f"Failed to get token: {response_data.get('error')}", status=400)
-
-            access_token = response_data.get("access_token")
-            # Currently Notion appends duplicated template ids into the duplicated_template_id array.
-
-            if access_token:
-                encrypted_token = encrypt_token(access_token)
-
-                # Fetch duplicated databases if provided down the line or just store access token
-                await create_or_update_user(
-                    telegram_id=telegram_id,
-                    notion_access_token_encrypted=encrypted_token
+    if success:
+        # Notify user in Telegram
+        try:
+            if has_dbs:
+                await bot.send_message(
+                    chat_id=telegram_id,
+                    text=i18n.get_text('msg_notion_connected_success', telegram_id),
+                    reply_markup=await get_main_menu(telegram_id)
                 )
-
-                return web.Response(text="Notion integration successful! You can close this page and return to the Telegram bot.")
             else:
-                return web.Response(text="No access token received from Notion.", status=400)
+                await bot.send_message(
+                    chat_id=telegram_id,
+                    text="⚠️ Notion підключено, але мені не вдалося знайти потрібні бази даних у вибраному шаблоні. Будь ласка, переконайтеся, що ви додали шаблон, та спробуйте /disconnect і /connect знову.",
+                )
+        except Exception as e:
+            logger.error(f"Failed to send success message to {telegram_id}: {e}")
+
+        return web.Response(text="Notion integration successful! You can close this page and return to the Telegram bot.")
+    else:
+        # Notify user of failure
+        try:
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=i18n.get_text('msg_notion_connect_failed', telegram_id)
+            )
+        except Exception as e:
+            logger.error(f"Failed to send failure message to {telegram_id}: {e}")
+
+        return web.Response(text="Failed to connect Notion. See bot messages for details.", status=400)
+
+
+async def handle_health_check(request: web.Request) -> web.Response:
+    """Simple health check endpoint."""
+    return web.Response(text="OK")
+
 
 def setup_webapp() -> web.Application:
     """Setup aiohttp web app for webhooks/callbacks."""
     app = web.Application()
     app.router.add_get('/notion-oauth-callback', handle_notion_oauth)
+    app.router.add_get('/health', handle_health_check)
     return app
-
