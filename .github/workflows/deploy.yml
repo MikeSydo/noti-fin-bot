@@ -1,0 +1,48 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy files to droplets via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }} # If SSH key has a passphrase
+          source: "."
+          target: "~/notion-finance-tracker"
+
+      - name: Executing remote ssh commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          script: |
+            cd ~/notion-finance-tracker
+            # Create/update .env file from secrets
+            echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" > .env
+            echo "NOTION_CLIENT_ID=${{ secrets.NOTION_CLIENT_ID }}" >> .env
+            echo "NOTION_CLIENT_SECRET=${{ secrets.NOTION_CLIENT_SECRET }}" >> .env
+            echo "NOTION_REDIRECT_URI=${{ secrets.NOTION_REDIRECT_URI }}" >> .env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+            echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
+            echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" >> .env
+            
+            # Restart services with Docker Compose
+            docker compose down
+            docker compose up -d --build

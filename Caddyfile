@@ -1,0 +1,10 @@
+{
+    # Global options
+    email mikesydocompan@gmail.com
+}
+
+# The domain name will be provided via an environment variable or manually edited
+# For now, we'll use a placeholder or the subdomain you register.
+{$DOMAIN_NAME} {
+    reverse_proxy app:8080
+}
