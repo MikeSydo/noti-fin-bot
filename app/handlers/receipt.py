@@ -4,8 +4,10 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.filters import StateFilter
 from bot import bot
 from decimal import Decimal
+from services.s3_service import upload_receipt_to_s3
 
 from services.i18n import i18n
 from services.notion_writer import NotionWriter
@@ -22,13 +24,9 @@ logger = logging.getLogger(__name__)
 class ReceiptProcessingState(StatesGroup):
     waiting_for_account = State()
 
-@router.message(F.photo | F.document)
+@router.message(StateFilter(None), F.photo | F.document)
 async def handle_receipt_image(message: Message, state: FSMContext, notion_writer: NotionWriter):
     """Handle image uploaded outside of any FSM state (meaning it's probably a receipt to parse)."""
-    current_state = await state.get_state()
-    if current_state is not None:
-        return
-
     user_id = message.from_user.id
     processing_msg = await message.answer(i18n.get_text('rcp_analyzing', user_id))
 
@@ -64,9 +62,10 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
             return
 
         # Prepare state data for the next step
-        # TODO: Implement S3/Cloudflare R2 upload here to get a permanent URL for Notion.
-        # Currently, we set file_url to None to avoid expired Telegram links.
-        file_url = None
+        # Upload image to S3 to get a permanent URL for Notion
+        # Read the bytes into memory (they were consumed by parse_receipt, but wait, bts was read!)
+        # We need to re-read or use the original bts
+        file_url = await upload_receipt_to_s3(bts, file_extension="jpg")
         
         await state.update_data(
             parsed_data=parsed_data.model_dump(),

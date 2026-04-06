@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     NOTION_CLIENT_SECRET: str
     NOTION_REDIRECT_URI: str
 
+    # AWS S3
+    AWS_REGION: str
+    AWS_S3_BUCKET_NAME: str
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
 
 # Singleton instance
 settings = Settings()
