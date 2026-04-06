@@ -13,5 +13,6 @@ numpy
 pandas
 sqlalchemy>=2.0.30
 asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
 cryptography>=43.0.0
 boto3>=1.35.0
