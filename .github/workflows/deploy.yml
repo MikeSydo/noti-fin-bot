@@ -16,7 +16,7 @@ jobs:
         run: rm -rf .venv .git __pycache__ .pytest_cache tests README.md README.dev.md .github
 
       - name: Copy files to droplets via SCP
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
@@ -24,7 +24,8 @@ jobs:
           source: "."
           target: "~/notion-finance-tracker"
           rm: true
-          timeout: 60s
+          timeout: 5m
+          command_timeout: 10m
 
       - name: Executing remote ssh commands to deploy
         uses: appleboy/ssh-action@master
