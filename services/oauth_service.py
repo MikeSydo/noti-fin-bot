@@ -226,7 +226,7 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
     return result if result else None
 
 
-async def search_databases_globally(access_token: str) -> Optional[Dict[str, str]]:
+async def search_databases_globally(access_token: str) -> Optional[dict[str, str]]:
     """Search for databases in the entire shared workspace using Notion Search API."""
     logger.info("Starting global database search via Notion Search API...")
     headers = {
@@ -274,7 +274,7 @@ async def search_databases_globally(access_token: str) -> Optional[Dict[str, str
     return result if result else None
 
 
-async def process_oauth_callback(code: str, telegram_id: int) -> bool:
+async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, bool]:
     """
     Full OAuth callback processing:
     1. Exchange code for tokens
@@ -286,7 +286,7 @@ async def process_oauth_callback(code: str, telegram_id: int) -> bool:
     # Exchange code for tokens
     token_response = await exchange_code_for_tokens(code)
     if not token_response:
-        return False
+        return False, False
 
     access_token = token_response.get("access_token")
     refresh_token = token_response.get("refresh_token")
@@ -297,7 +297,7 @@ async def process_oauth_callback(code: str, telegram_id: int) -> bool:
 
     if not access_token:
         logger.error("No access_token in OAuth response")
-        return False
+        return False, False
 
     # Prepare user update data
     update_data = {
