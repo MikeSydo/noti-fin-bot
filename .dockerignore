@@ -1,0 +1,9 @@
+.venv
+.git
+__pycache__
+.env
+.pytest_cache
+tests
+docker-compose.override.yml
+*.pyc
+*.log

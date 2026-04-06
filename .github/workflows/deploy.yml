@@ -12,6 +12,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Remove unnecessary files
+        run: rm -rf .venv .git __pycache__ .pytest_cache tests
+
       - name: Copy files to droplets via SCP
         uses: appleboy/scp-action@master
         with:
