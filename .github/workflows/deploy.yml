@@ -3,7 +3,7 @@ name: Deploy to DigitalOcean
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   deploy:
@@ -18,7 +18,6 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }} # If SSH key has a passphrase
           source: "."
           target: "~/notion-finance-tracker"
 
@@ -28,20 +27,40 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
           script: |
             cd ~/notion-finance-tracker
-            # Create/update .env file from secrets
-            echo "BOT_TOKEN=${{ secrets.BOT_TOKEN }}" > .env
-            echo "NOTION_CLIENT_ID=${{ secrets.NOTION_CLIENT_ID }}" >> .env
-            echo "NOTION_CLIENT_SECRET=${{ secrets.NOTION_CLIENT_SECRET }}" >> .env
-            echo "NOTION_REDIRECT_URI=${{ secrets.NOTION_REDIRECT_URI }}" >> .env
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
-            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
-            echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
-            echo "AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}" >> .env
-            echo "DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}" >> .env
+            
+            # Create .env file with all necessary variables
+            cat <<EOF > .env
+            # Telegram
+            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+            
+            # Gemini
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            
+            # Database
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DATABASE_URL=postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@db:5432/${{ secrets.DB_NAME }}
+            
+            # Security
+            FERNET_KEY=${{ secrets.FERNET_KEY }}
+            
+            # Notion OAuth
+            NOTION_CLIENT_ID=${{ secrets.NOTION_CLIENT_ID }}
+            NOTION_CLIENT_SECRET=${{ secrets.NOTION_CLIENT_SECRET }}
+            NOTION_REDIRECT_URI=${{ secrets.NOTION_REDIRECT_URI }}
+            
+            # AWS S3
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            
+            # Caddy / Domain
+            DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+            EOF
             
             # Restart services with Docker Compose
             docker compose down
