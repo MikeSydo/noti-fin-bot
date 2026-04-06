@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Remove unnecessary files
-        run: rm -rf .venv .git __pycache__ .pytest_cache tests
+        run: rm -rf .venv .git __pycache__ .pytest_cache tests README.md README.dev.md .github
 
       - name: Copy files to droplets via SCP
         uses: appleboy/scp-action@master
@@ -23,6 +23,8 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           source: "."
           target: "~/notion-finance-tracker"
+          rm: true
+          timeout: 60s
 
       - name: Executing remote ssh commands to deploy
         uses: appleboy/ssh-action@master
