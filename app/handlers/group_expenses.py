@@ -7,8 +7,8 @@ from aiogram.fsm.context import FSMContext
 from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from bot import bot
-
 from models.group_expense import GroupExpense
+from services.s3_service import upload_receipt_to_s3
 from app.keyboards.reply import get_main_menu
 from app.keyboards.inline import get_today_date_keyboard, get_categories_keyboard, get_group_expenses_keyboard, \
     get_skip_receipt_keyboard, get_accounts_keyboard, get_multi_select_expenses_keyboard
@@ -233,10 +233,12 @@ async def process_receipt_document(message: Message, state: FSMContext, notion_w
         elif message.document:
             file_id = message.document.file_id
 
-        # We simulate saving but keep the receipt URL as None 
-        # so Notion doesn't get dead Telegram links or complain.
-        # TODO: Implement permanent upload (AWS S3 / R2) here to save actual receipt images.
         file_url = None
+        if file_id:
+            file = await bot.get_file(file_id)
+            file_bytes_io = await bot.download_file(file.file_path)
+            file_bytes = file_bytes_io.read()
+            file_url = await upload_receipt_to_s3(file_bytes, file_extension="jpg")
         
         await state.update_data(receipt_url=file_url)
 
@@ -328,10 +330,6 @@ async def save_group_expense(message: Message, state: FSMContext, notion_writer:
         account = data.get("account")
         category = data.get("category")
         selected_expenses_ids = data.get("selected_expenses_ids", [])
-
-        # Instead of relations to normal expenses, Notion usually needs you to pass relations.
-        # But our GroupExpense model right now doesn't save relations to the Expense DB.
-        # It's an oversight from original codebase or we add it later.
         
         expense = GroupExpense(
             name=data["name"],
