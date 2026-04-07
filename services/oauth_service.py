@@ -274,19 +274,35 @@ async def search_databases_globally(access_token: str) -> Optional[dict[str, str
     return result if result else None
 
 
-async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, bool]:
+async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, dict]:
     """
-    Full OAuth callback processing:
+    Step 1 of OAuth callback processing:
     1. Exchange code for tokens
-    2. Store encrypted tokens
-    3. Discover database IDs from template
-    4. Update user record
-    Returns True on success.
+    2. Return token info and success status
     """
-    # Exchange code for tokens
     token_response = await exchange_code_for_tokens(code)
     if not token_response:
-        return False, False
+        return False, {}
+
+    access_token = token_response.get("access_token")
+    if not access_token:
+        logger.error("No access_token in OAuth response")
+        return False, {}
+
+    return True, token_response
+
+
+async def complete_oauth_discovery(token_response: dict, telegram_id: int):
+    """
+    Step 2 of OAuth callback processing (Run in background):
+    1. Store encrypted tokens
+    2. Discover database IDs
+    3. Update user record
+    4. Notify user via Telegram
+    """
+    from bot import bot
+    from services.i18n import i18n
+    from app.keyboards.reply import get_main_menu
 
     access_token = token_response.get("access_token")
     refresh_token = token_response.get("refresh_token")
@@ -294,10 +310,6 @@ async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, boo
     bot_id = token_response.get("bot_id")
     workspace_id = token_response.get("workspace_id")
     workspace_name = token_response.get("workspace_name")
-
-    if not access_token:
-        logger.error("No access_token in OAuth response")
-        return False, False
 
     # Prepare user update data
     update_data = {
@@ -313,12 +325,12 @@ async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, boo
     # Discover database IDs
     db_ids = None
     if duplicated_template_id:
-        logger.info(f"Duplicated template ID found: {duplicated_template_id}. Starting discovery...")
+        logger.info(f"Duplicated template ID found: {duplicated_template_id} for user {telegram_id}. Starting discovery...")
         db_ids = await discover_database_ids(access_token, duplicated_template_id)
     
     # Fallback to global search if no IDs found or no template ID provided
     if not db_ids:
-        logger.info("Falling back to global search for databases...")
+        logger.info(f"Falling back to global search for databases for user {telegram_id}...")
         db_ids = await search_databases_globally(access_token)
 
     if db_ids:
@@ -335,6 +347,20 @@ async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, boo
 
     # Store everything in the database
     await create_or_update_user(telegram_id=telegram_id, **update_data)
+    logger.info(f"OAuth background discovery completed for user {telegram_id} (workspace: {workspace_name}). HasDbs: {has_all_dbs}")
 
-    logger.info(f"OAuth flow completed for user {telegram_id} (workspace: {workspace_name}). Success: {True}, HasDbs: {has_all_dbs}")
-    return True, has_all_dbs
+    # Notify user in Telegram
+    try:
+        if has_all_dbs:
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=i18n.get_text('msg_notion_connected_success', telegram_id),
+                reply_markup=await get_main_menu(telegram_id)
+            )
+        else:
+            await bot.send_message(
+                chat_id=telegram_id,
+                text=i18n.get_text('msg_notion_connected_no_dbs', telegram_id),
+            )
+    except Exception as e:
+        logger.error(f"Failed to send background success message to {telegram_id}: {e}")

@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from aiohttp import web
 from bot import bot
 
@@ -24,29 +25,62 @@ async def handle_notion_oauth(request: web.Request) -> web.Response:
     # Validate CSRF state token and get user ID
     telegram_id = await validate_oauth_state(state)
     if not telegram_id:
-        return web.Response(text="Invalid or expired session. Please try connecting again from the bot.", status=400)
+        return web.Response(
+            text="Invalid or expired session. Please try connecting again from the bot.", 
+            status=400
+        )
 
-    # Process OAuth callback (exchange token, store everything, discover databases)
-    success, has_dbs = await process_oauth_callback(code, telegram_id)
+    # Step 1: Exchange code for tokens (Fast)
+    from services.oauth_service import complete_oauth_discovery
+    success, token_response = await process_oauth_callback(code, telegram_id)
 
     if success:
-        # Notify user in Telegram
-        try:
-            if has_dbs:
-                await bot.send_message(
-                    chat_id=telegram_id,
-                    text=i18n.get_text('msg_notion_connected_success', telegram_id),
-                    reply_markup=await get_main_menu(telegram_id)
-                )
-            else:
-                await bot.send_message(
-                    chat_id=telegram_id,
-                    text=i18n.get_text('msg_notion_connected_no_dbs', telegram_id),
-                )
-        except Exception as e:
-            logger.error(f"Failed to send success message to {telegram_id}: {e}")
+        # Step 2: Start heavy discovery in the background (Async)
+        asyncio.create_task(complete_oauth_discovery(token_response, telegram_id))
 
-        return web.Response(text="Notion integration successful! You can close this page and return to the Telegram bot.")
+        # Return styled HTML success page immediately
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Notion Connected!</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                    background-color: #f4f4f9;
+                    color: #333;
+                    text-align: center;
+                }
+                .container {
+                    padding: 2rem;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    max-width: 400px;
+                }
+                h1 { color: #000; margin-bottom: 1rem; }
+                p { line-height: 1.5; color: #666; }
+                .icon { font-size: 3rem; margin-bottom: 1rem; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">✅</div>
+                <h1>Notion Connected!</h1>
+                <p>Authentication successful. We are now setting up your databases in the background.</p>
+                <p><strong>You can safely close this window and return to your Telegram bot.</strong></p>
+            </div>
+        </body>
+        </html>
+        """
+        return web.Response(text=html_content, content_type='text/html')
     else:
         # Notify user of failure
         try:
