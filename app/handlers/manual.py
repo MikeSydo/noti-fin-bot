@@ -161,3 +161,18 @@ async def cmd_cancel(message: Message, state: FSMContext):
         i18n.get_text('msg_action_cancelled', user_id),
         reply_markup=await get_main_menu(user_id),
     )
+@router.message(Command('version'), StateFilter(any_state))
+async def cmd_version(message: Message):
+    """Answers for command /version."""
+    user_id = message.from_user.id
+    from config import settings
+    
+    await message.answer(
+        i18n.get_text(
+            'msg_version', 
+            user_id, 
+            version=settings.VERSION, 
+            env=settings.ENV_NAME.upper()
+        ), 
+        parse_mode="Markdown"
+    )
