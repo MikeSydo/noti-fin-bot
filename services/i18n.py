@@ -38,18 +38,18 @@ class I18n:
         except Exception as e:
             logger.error(f"Failed to load user languages from DB: {e}")
 
-    async def _save_user_lang_to_db(self, user_id: int, lang_code: str):
+    async def _save_user_lang_to_db(self, user_id: int, lang_code: str, username: str = None):
         try:
             from services.user_service import create_or_update_user
-            await create_or_update_user(user_id, language=lang_code)
+            await create_or_update_user(user_id, language=lang_code, username=username)
         except Exception as e:
-            logger.error(f"Failed to save user {user_id} language to DB: {e}")
+            logger.error(f"Failed to save user {user_id} language/username to DB: {e}")
 
-    async def set_user_lang(self, user_id: int, lang_code: str):
+    async def set_user_lang(self, user_id: int, lang_code: str, username: str = None):
         """Async method to set language and save it to the DB."""
-        logger.info(f"Setting language for user {user_id} to '{lang_code}'")
+        logger.info(f"Setting language for user {user_id} to '{lang_code}' (username: {username})")
         self.user_langs[user_id] = lang_code
-        await self._save_user_lang_to_db(user_id, lang_code)
+        await self._save_user_lang_to_db(user_id, lang_code, username=username)
 
     def get_user_lang(self, user_id: int) -> str | None:
         return self.user_langs.get(user_id)

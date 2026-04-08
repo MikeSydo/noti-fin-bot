@@ -115,7 +115,7 @@ async def process_language_selection(message: Message):
     else:
         lang = "uk"
     
-    await i18n.set_user_lang(user_id, lang)
+    await i18n.set_user_lang(user_id, lang, username=message.from_user.username)
 
     # After language selection, check if Notion is connected
     user = await get_user(user_id)
