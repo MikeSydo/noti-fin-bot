@@ -1,4 +1,5 @@
 {
+  "msg_version": "🚀 *Version:* {version}\n🌐 *Environment:* {env}\n\n*What's new:*\n- Added Dev environment support\n- Improved encryption security\n- Added /version command",
   "btn_add_account": "💳 Add account",
   "btn_del_account": "🗑️ Delete account",
   "btn_add_expense": "💸 Add expense",

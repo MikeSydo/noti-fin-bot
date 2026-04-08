@@ -66,6 +66,10 @@ jobs:
             
             # Caddy / Domain
             DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+            
+            # Server & Environment
+            PORT=${{ secrets.PORT }}
+            ENV=prod
             EOF
             
             # Restart services with Docker Compose
