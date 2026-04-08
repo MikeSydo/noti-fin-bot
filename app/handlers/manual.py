@@ -167,6 +167,15 @@ async def cmd_version(message: Message):
     user_id = message.from_user.id
     from config import settings
     
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=i18n.get_text('btn_release_notes', user_id),
+                url=settings.RELEASE_NOTES_URL
+            )]
+        ]
+    )
+    
     await message.answer(
         i18n.get_text(
             'msg_version', 
@@ -174,5 +183,6 @@ async def cmd_version(message: Message):
             version=settings.VERSION, 
             env=settings.ENV_NAME.upper()
         ), 
+        reply_markup=keyboard,
         parse_mode="Markdown"
     )

@@ -1,5 +1,6 @@
 {
-  "msg_version": "🚀 *Version:* {version}\n🌐 *Environment:* {env}\n\n*What's new:*\n- Added Dev environment support\n- Improved encryption security\n- Added /version command",
+  "msg_version": "🚀 *Version:* {version}\nRead the release notes here:",
+  "btn_release_notes": "📝 Release Notes",
   "btn_add_account": "💳 Add account",
   "btn_del_account": "🗑️ Delete account",
   "btn_add_expense": "💸 Add expense",
@@ -89,7 +90,20 @@
   "rep_stats_text_header": "📊 *Statistics for {year}*\nAccount: {account_name}\nTotal expenses: {total_amount}\n\n*Categories:*\n",
   "txt_all": "All",
   "txt_no_category": "No category",
-  "graph_months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  "graph_months": [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec"
+  ],
   "graph_expenses_label": "Expenses",
   "graph_budget_label": "Monthly budget",
   "graph_y_label": "Amount",
@@ -153,7 +167,6 @@
   "msg_notion_connected_success": "🎉 Success! Your Notion is connected and databases are configured.",
   "msg_notion_connect_failed": "❌ Failed to connect. It seems you didn't finish the process, or an error occurred on the server.",
   "msg_notion_connected_no_dbs": "⚠️ Notion connected, but I couldn't find the required databases in the selected template. Please make sure you added the template, and try /disconnect and /connect again.",
-
   "msg_analytics_menu": "📊 Choose analytics type:",
   "msg_select_month": "📅 Select a month:",
   "msg_generating_report": "⏳ Generating report...",
@@ -163,18 +176,15 @@
   "msg_no_data_for_comparison": "No data available for comparison in the selected periods.",
   "msg_stats_caption": "📊 Statistics for {month}",
   "msg_comparison_caption": "{current_label}: {current_total}\n{previous_label}: {previous_total}\nDifference: {diff} ({percentage})",
-
   "graph_category_breakdown": "Spending by Category — {month}",
   "graph_weekly_spending": "Weekly Spending — {month}",
   "graph_spending_comparison": "Spending Comparison",
-
   "label_today": "Today",
   "label_yesterday": "Yesterday",
   "label_this_week": "This week",
   "label_last_week": "Last week",
   "label_this_month": "This month",
   "label_last_month": "Last month",
-
   "grexp_uploading_receipt": "Uploading receipt...",
   "grexp_load_failed": "Failed to upload the file.",
   "grexp_no_expenses_available": "No expenses available to link.",

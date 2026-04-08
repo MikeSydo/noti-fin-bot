@@ -16,8 +16,9 @@ class Settings(BaseSettings):
     )
 
     # App Info
-    VERSION: str = "1.0.0"
+    VERSION: str
     ENV_NAME: str = ENV
+    RELEASE_NOTES_URL: str
 
     # Server Settings
     PORT: int = 8080
