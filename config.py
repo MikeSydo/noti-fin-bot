@@ -1,13 +1,27 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Determine which .env file to use
+# 'prod' is default, 'dev' loads .env.dev
+ENV = os.getenv("ENV", "prod")
+ENV_FILE = ".env.dev" if ENV == "dev" else ".env"
 
 class Settings(BaseSettings):
     """App Settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore" # allow extra fields like the old ones if user hasn't removed them
     )
+
+    # App Info
+    VERSION: str = "1.0.0"
+    ENV_NAME: str = ENV
+
+    # Server Settings
+    PORT: int = 8080
+    DOMAIN_NAME: str = "localhost"
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str
