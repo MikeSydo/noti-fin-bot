@@ -2,16 +2,17 @@ import logging
 from typing import Callable, Any, Awaitable
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery, TelegramObject
+from aiogram.types import Message, CallbackQuery, TelegramObject, InlineKeyboardMarkup, InlineKeyboardButton
 
 from services.notion_writer import get_notion_writer
 from services.user_service import get_user
+from services.oauth_service import generate_oauth_url
 from services.i18n import i18n
 
 logger = logging.getLogger(__name__)
 
 # Commands that don't require Notion connection
-BYPASS_COMMANDS = {"/start", "/help", "/cancel", "/connect", "/disconnect"}
+BYPASS_COMMANDS = {"/start", "/help", "/cancel", "/connect", "/disconnect", "/version"}
 
 # Button texts that don't require Notion (language selection)
 BYPASS_BUTTON_PREFIXES = ("🇺🇦", "🇬🇧", "❌", "⬅️")
@@ -65,8 +66,18 @@ class AuthMiddleware(BaseMiddleware):
         if not user or not user.is_notion_connected or not user.has_databases:
             # User needs to connect Notion first
             if isinstance(event, Message):
+                oauth_url = await generate_oauth_url(user_id)
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(
+                            text=i18n.get_text('btn_connect_notion', user_id),
+                            url=oauth_url
+                        )]
+                    ]
+                )
                 await event.answer(
                     i18n.get_text('msg_notion_not_connected', user_id),
+                    reply_markup=keyboard,
                     parse_mode="Markdown",
                 )
             elif isinstance(event, CallbackQuery):
