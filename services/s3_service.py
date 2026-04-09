@@ -53,3 +53,39 @@ async def upload_receipt_to_s3(file_bytes: bytes, file_extension: str = "jpg") -
             return None
 
     return await asyncio.to_thread(_upload)
+
+
+async def delete_receipt_from_s3(file_url: str | None) -> bool:
+    """
+    Deletes a file from AWS S3 using its public URL.
+    Extracts the S3 key from the URL and calls delete_object.
+    Returns True on success, False on failure or if URL is invalid.
+    """
+    if not file_url:
+        return False
+
+    def _delete():
+        try:
+            # URL format: https://<bucket>.s3.<region>.amazonaws.com/<key>
+            # We need everything after .amazonaws.com/
+            marker = ".amazonaws.com/"
+            idx = file_url.find(marker)
+            if idx == -1:
+                logger.warning(f"Could not parse S3 key from URL: {file_url}")
+                return False
+            key = file_url[idx + len(marker):]
+            s3_client.delete_object(
+                Bucket=settings.AWS_S3_BUCKET_NAME,
+                Key=key,
+            )
+            logger.info(f"Deleted S3 object: {key}")
+            return True
+        except ClientError as e:
+            logger.error(f"AWS S3 Delete Error: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected S3 Delete Error: {e}")
+            return False
+
+    return await asyncio.to_thread(_delete)
+
