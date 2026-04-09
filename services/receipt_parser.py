@@ -30,8 +30,10 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
     try:
         lang_name = "Ukrainian" if lang_code == "uk" else "English"
         prompt = f"""
-        Analyze this image. First, determine if it is actually a receipt.
-        If it's NOT a receipt (e.g., a photo of a person, animal, nature, or object), set "is_receipt" to false and leave other fields empty.
+        Analyze this image. Your first task is to determine if it is a receipt.
+        A receipt is a document issued by a store, restaurant, or service provider showing proof of purchase. It often contains a store name, a list of items, and a total amount. It MAY be a photo of a paper receipt, potentially taken at an angle, in low light, or against various backgrounds.
+        
+        If it's NOT a receipt (e.g., a photo of a person, animal, nature, or a random object with no text), set "is_receipt" to false and leave other fields empty.
         
         If it IS a receipt, extract the following information:
         - Store name (store_name)

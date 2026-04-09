@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from bot import bot
 from models.group_expense import GroupExpense
-from services.s3_service import upload_receipt_to_s3
+from services.s3_service import upload_receipt_to_s3, delete_receipt_from_s3
 from app.keyboards.reply import get_main_menu
 from app.keyboards.inline import get_today_date_keyboard, get_categories_keyboard, get_group_expenses_keyboard, \
     get_skip_receipt_keyboard, get_accounts_keyboard, get_multi_select_expenses_keyboard
@@ -479,6 +479,12 @@ async def process_delete_group_expense(message: Message, state: FSMContext, noti
 
         # Delete the group expense itself
         success = await notion_writer.delete_page(data['id'])
+        
+        # Cleanup S3 receipt if it exists
+        if success and group_expense_list:
+            ge = group_expense_list[0]
+            if ge.receipt_url:
+                await delete_receipt_from_s3(ge.receipt_url)
 
         await deleting_msg.delete()
 

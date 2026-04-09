@@ -70,3 +70,51 @@ async def test_upload_receipt_to_s3_unique_filenames(mock_s3):
     result2 = await upload_receipt_to_s3(b"bytes2")
 
     assert result1 != result2
+
+
+@pytest.mark.asyncio
+@patch('services.s3_service.s3_client')
+async def test_delete_receipt_from_s3_success(mock_s3):
+    """Test that delete_receipt_from_s3 returns True when S3 deletion succeeds."""
+    mock_s3.delete_object = MagicMock(return_value={})
+
+    from services.s3_service import delete_receipt_from_s3
+    url = "https://test-bucket.s3.us-east-1.amazonaws.com/receipts/abc123.jpg"
+    result = await delete_receipt_from_s3(url)
+
+    assert result is True
+    mock_s3.delete_object.assert_called_once()
+    call_kwargs = mock_s3.delete_object.call_args.kwargs
+    assert call_kwargs["Key"] == "receipts/abc123.jpg"
+
+
+@pytest.mark.asyncio
+@patch('services.s3_service.s3_client')
+async def test_delete_receipt_from_s3_invalid_url(mock_s3):
+    """Test that delete_receipt_from_s3 returns False on invalid URL."""
+    mock_s3.delete_object = MagicMock(return_value={})
+
+    from services.s3_service import delete_receipt_from_s3
+    result = await delete_receipt_from_s3(None)
+
+    assert result is False
+    mock_s3.delete_object.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch('services.s3_service.s3_client')
+async def test_delete_receipt_from_s3_client_error(mock_s3):
+    """Test that delete_receipt_from_s3 returns False on ClientError."""
+    from botocore.exceptions import ClientError
+    mock_s3.delete_object = MagicMock(
+        side_effect=ClientError(
+            {'Error': {'Code': '403', 'Message': 'Forbidden'}},
+            'delete_object'
+        )
+    )
+
+    from services.s3_service import delete_receipt_from_s3
+    url = "https://test-bucket.s3.us-east-1.amazonaws.com/receipts/abc123.jpg"
+    result = await delete_receipt_from_s3(url)
+
+    assert result is False
