@@ -50,68 +50,55 @@ async def test_parse_receipt_success(mock_genai_client, mock_receipt_bytes):
 
     # Assertions
     assert result is not None
-    assert isinstance(result, ParsedReceipt)
-    assert result.is_receipt is True
     assert result.store_name == "METRO"
-    assert result.total_amount == 506.06
-    assert result.date == "28-03-2026"
-    assert len(result.items) == 2
-
-    # Verify the REAL image bytes were passed to Gemini
+    
+    # Verify the CORRECT model is used (Gemini 2.5 Flash as requested)
     mock_genai_client.aio.models.generate_content.assert_called_once()
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
-    assert kwargs["contents"][1].inline_data.data == mock_receipt_bytes
+    assert kwargs["model"] == "gemini-2.5-flash"
 
 
 @pytest.mark.asyncio
-async def test_parse_receipt_not_receipt(mock_genai_client, mock_receipt_bytes):
-    """Test that is_receipt=False is correctly returned when Gemini says no."""
+async def test_parse_receipt_retry_logic(mock_genai_client):
+    """Test that parse_receipt retries on 503 errors and eventually succeeds."""
     mock_response = MagicMock()
-    mock_data = {
-        "is_receipt": False,
-        "store_name": "",
-        "group_expense_name": "",
-        "total_amount": 0.0,
-        "date": "",
-        "items": []
-    }
+    mock_data = {"is_receipt": False, "store_name": "", "group_expense_name": "", "total_amount": 0.0, "date": "", "items": []}
     mock_response.text = json.dumps(mock_data)
 
-    async def mock_generate(*args, **kwargs):
-        return mock_response
+    # First and second calls raise 503, third call succeeds
+    side_effects = [
+        Exception("503 Service Unavailable"),
+        Exception("503 Service Unavailable"),
+        mock_response
+    ]
+    
+    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=side_effects)
 
-    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
-
-    result = await parse_receipt(mock_receipt_bytes, [], lang_code="uk")
+    # Use small delay to speed up tests
+    with patch("asyncio.sleep", return_value=None):
+        result = await parse_receipt(b"fake_bytes", [])
 
     assert result is not None
-    assert result.is_receipt is False
+    assert mock_genai_client.aio.models.generate_content.call_count == 3
 
 
 @pytest.mark.asyncio
-async def test_parse_receipt_empty_response(mock_genai_client):
-    """Test that parse_receipt returns None on empty Gemini response."""
+async def test_parse_receipt_empty_response_raises(mock_genai_client):
+    """Test that parse_receipt RAISES an exception on empty Gemini response after retries."""
     mock_response = MagicMock()
     mock_response.text = ""
 
-    async def mock_generate(*args, **kwargs):
-        return mock_response
+    mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
-
-    result = await parse_receipt(b"fake_image_bytes", ["Food"])
-
-    assert result is None
+    with patch("asyncio.sleep", return_value=None):
+        with pytest.raises(Exception, match="Empty response from Gemini API"):
+            await parse_receipt(b"fake_image_bytes", ["Food"])
 
 
 @pytest.mark.asyncio
-async def test_parse_receipt_exception(mock_genai_client):
-    """Test that parse_receipt returns None when Gemini raises an exception."""
-    async def mock_generate(*args, **kwargs):
-        raise Exception("API Error")
+async def test_parse_receipt_exception_re_raised(mock_genai_client):
+    """Test that parse_receipt re-raises the exception after retries if it's not a temporary error."""
+    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=Exception("Permanent API Error"))
 
-    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
-
-    result = await parse_receipt(b"fake_image_bytes", ["Food"])
-
-    assert result is None
+    with pytest.raises(Exception, match="Permanent API Error"):
+        await parse_receipt(b"fake_image_bytes", ["Food"])

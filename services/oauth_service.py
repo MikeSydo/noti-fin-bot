@@ -190,7 +190,11 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
             url = f"https://api.notion.com/v1/blocks/{block_id}/children?page_size=100"
             async with session.get(url, headers=headers) as resp:
                 if resp.status != 200:
-                    logger.error(f"Failed to get children for {block_id}: {await resp.text()}")
+                    resp_text = await resp.text()
+                    if "copy_indicator" in resp_text:
+                        logger.warning(f"Skipping block {block_id} due to unsupported copy_indicator type.")
+                        return
+                    logger.error(f"Failed to get children for {block_id}: {resp_text}")
                     return
 
                 data = await resp.json()
@@ -213,7 +217,10 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
                     page_title = block.get("child_page", {}).get("title", "")
                     logger.info(f"Found child page: '{page_title}'. Checking inside...")
                     # Recursively scan child pages (especially like "Database" page)
-                    await scan_block(block["id"], depth + 1)
+                    try:
+                        await scan_block(block["id"], depth + 1)
+                    except Exception as e:
+                        logger.warning(f"Could not scan inside page '{page_title}': {e}")
 
         # Start scanning from the root duplicated template
         await scan_block(duplicated_template_id)

@@ -65,6 +65,7 @@
   "rcp_analyzing": "Analyzing receipt image... This can take up to a minute.",
   "rcp_invalid_file": "The uploaded file does not look like a valid image.",
   "rcp_parsing_failed": "Failed to recognize the receipt. Please make sure the photo is clear and contains a receipt.",
+  "rcp_analysis_error": "An error occurred during receipt analysis. Please try another photo or try again later.",
   "rcp_not_receipt": "This image does not look like a receipt. Please send a photo of a receipt.",
   "rcp_no_accounts": "No accounts found. Please add an account first.",
   "rcp_identified": "Receipt identified: {store_name} ({total_amount})\nFound {items_count} items.\nFrom which account was this expense made?",

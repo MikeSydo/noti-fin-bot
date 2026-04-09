@@ -11,6 +11,7 @@ from services.i18n import i18n
 from webapp import setup_webapp
 from aiohttp import web
 from bot import bot
+from aiogram.types import BotCommandScopeDefault
 
 dp = Dispatcher() #router to process messages, callback, etc...
 
@@ -24,7 +25,7 @@ async def set_bot_commands():
         BotCommand(command="cancel", description="Скасувати поточну дію"),
         BotCommand(command="version", description="Версія та зміни"),
     ]
-    await bot.set_my_commands(commands)
+    await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
 async def start_web_server():
     """Start an internal web server for OAuth and Webhooks."""

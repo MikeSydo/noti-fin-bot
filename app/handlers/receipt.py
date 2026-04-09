@@ -89,7 +89,11 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
 
     except Exception as e:
         logger.error(f"Failed to process receipt: {e}")
-        await processing_msg.edit_text(i18n.get_text('rcp_save_error', user_id))
+        error_str = str(e).upper()
+        if "503" in error_str or "UNAVAILABLE" in error_str or "BUSY" in error_str or "EXHAUSTED" in error_str:
+            await processing_msg.edit_text(i18n.get_text('rcp_gemini_busy', user_id))
+        else:
+            await processing_msg.edit_text(i18n.get_text('rcp_analysis_error', user_id))
 
 
 @router.callback_query((F.data.startswith('select_account_')) | (F.data == 'skip_account'), ReceiptProcessingState.waiting_for_account)
