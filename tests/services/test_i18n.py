@@ -103,7 +103,7 @@ async def test_set_user_lang_updates_cache(i18n_instance):
     with patch.object(i18n_instance, '_save_user_lang_to_db', new_callable=AsyncMock) as mock_save:
         await i18n_instance.set_user_lang(800, "en", username="user800")
         assert i18n_instance.user_langs[800] == "en"
-        mock_save.assert_called_once_with("en", username="user800")
+        mock_save.assert_called_once_with(800, "en", username="user800")
 
 
 @pytest.mark.asyncio
@@ -111,4 +111,4 @@ async def test_set_user_lang_calls_db_save(i18n_instance):
     """Test set_user_lang persists the language to the DB."""
     with patch.object(i18n_instance, '_save_user_lang_to_db', new_callable=AsyncMock) as mock_save:
         await i18n_instance.set_user_lang(900, "uk")
-        mock_save.assert_called_once_with("uk", username=None)
+        mock_save.assert_called_once_with(900, "uk", username=None)

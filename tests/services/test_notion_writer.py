@@ -371,6 +371,26 @@ async def test_add_group_expense_failure(mock_writer):
     mock_client.pages.create.assert_called_once()
 
 @pytest.mark.asyncio
+async def test_get_group_expenses_success(mock_writer, mock_group_expenses_response):
+    writer, mock_client = mock_writer
+    
+    page_data = mock_group_expenses_response["results"][0]
+    # Add Expenses relation data
+    page_data["properties"]["Expenses"] = {"relation": [{"id": "uuid_expense_1"}, {"id": "uuid_expense_2"}]}
+    
+    mock_client.pages.retrieve = AsyncMock(return_value=page_data)
+
+    expenses = await writer.get_group_expenses(["uuid_grexpense_1"])
+
+    assert len(expenses) == 1
+    assert expenses[0].id == "uuid_grexpense_1"
+    assert expenses[0].name == "Party"
+    assert expenses[0].amount == Decimal("1500.0")
+    assert expenses[0].expenses_relations == ["uuid_expense_1", "uuid_expense_2"]
+
+    mock_client.pages.retrieve.assert_called_once_with(page_id="uuid_grexpense_1")
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("account_input, category_input", [
     (Account(id="acc_1", name="Monobank", initial_amount=Decimal("1500.50"), monthly_budget=Decimal("5000.00")), Category(id="cat_1", name="Test Category")),
     (None, None),
@@ -534,3 +554,235 @@ async def test_get_expenses_by_date_range_failure(mock_writer):
 
     assert expenses == []
     mock_client.request.assert_called_once()
+
+
+# ─────────────────────────────────────────────
+# Group Expenses – find / get / delete
+# ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_find_group_expenses_success(mock_writer, mock_group_expenses_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_group_expenses_response)
+
+    ids = await writer.find_group_expenses("Party")
+
+    assert ids is not None
+    assert "uuid_grexpense_1" in ids
+    mock_client.request.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_find_group_expenses_not_found(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value={"results": []})
+
+    ids = await writer.find_group_expenses("Nonexistent")
+
+    assert ids is None
+
+
+@pytest.mark.asyncio
+async def test_find_group_expenses_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    ids = await writer.find_group_expenses("Party")
+
+    assert ids is None
+
+
+@pytest.mark.asyncio
+async def test_get_group_expenses_success_with_relations(mock_writer, mock_group_expenses_response):
+    """Test that get_group_expenses correctly parses expenses_relations from Notion response."""
+    writer, mock_client = mock_writer
+
+    page_data = mock_group_expenses_response["results"][0]
+    page_data["properties"]["Expenses"] = {
+        "relation": [{"id": "uuid_expense_1"}, {"id": "uuid_expense_2"}]
+    }
+    mock_client.pages.retrieve = AsyncMock(return_value=page_data)
+
+    result = await writer.get_group_expenses(["uuid_grexpense_1"])
+
+    assert len(result) == 1
+    assert result[0].id == "uuid_grexpense_1"
+    assert result[0].name == "Party"
+    assert "uuid_expense_1" in result[0].expenses_relations
+    assert "uuid_expense_2" in result[0].expenses_relations
+
+
+@pytest.mark.asyncio
+async def test_get_group_expenses_no_relations(mock_writer, mock_group_expenses_response):
+    """Test that get_group_expenses returns empty expenses_relations when property is absent."""
+    writer, mock_client = mock_writer
+
+    page_data = mock_group_expenses_response["results"][0]
+    # Ensure no Expenses relation key present
+    page_data["properties"].pop("Expenses", None)
+    mock_client.pages.retrieve = AsyncMock(return_value=page_data)
+
+    result = await writer.get_group_expenses(["uuid_grexpense_1"])
+
+    assert len(result) == 1
+    assert result[0].expenses_relations == []
+
+
+@pytest.mark.asyncio
+async def test_get_group_expenses_failure(mock_writer):
+    """Test that get_group_expenses returns empty list on API error."""
+    writer, mock_client = mock_writer
+    mock_client.pages.retrieve = AsyncMock(side_effect=Exception("API Error"))
+
+    result = await writer.get_group_expenses(["uuid_grexpense_1"])
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_group_expenses_by_ids_alias(mock_writer, mock_group_expenses_response):
+    """Test that get_group_expenses_by_ids is an alias for get_group_expenses."""
+    writer, mock_client = mock_writer
+
+    page_data = mock_group_expenses_response["results"][0]
+    page_data["properties"]["Expenses"] = {"relation": []}
+    mock_client.pages.retrieve = AsyncMock(return_value=page_data)
+
+    result = await writer.get_group_expenses_by_ids(["uuid_grexpense_1"])
+
+    assert len(result) == 1
+    assert result[0].id == "uuid_grexpense_1"
+
+
+# ─────────────────────────────────────────────
+# Expenses – get_all, get_recent, get_list
+# ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_all_expenses_success(mock_writer, mock_expenses_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_expenses_response)
+
+    expenses = await writer.get_all_expenses()
+
+    assert len(expenses) == 7
+    mock_client.request.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_all_expenses_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    expenses = await writer.get_all_expenses()
+
+    assert expenses == []
+
+
+@pytest.mark.asyncio
+async def test_get_recent_expenses_success(mock_writer, mock_expenses_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_expenses_response)
+
+    expenses = await writer.get_recent_expenses(limit=5)
+
+    assert len(expenses) > 0
+    call_kwargs = mock_client.request.call_args.kwargs
+    # Should request with page_size & sorts
+    assert call_kwargs["body"]["page_size"] == 5
+    assert call_kwargs["body"]["sorts"][0]["property"] == "Date"
+
+
+@pytest.mark.asyncio
+async def test_get_recent_expenses_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    expenses = await writer.get_recent_expenses()
+
+    assert expenses == []
+
+
+@pytest.mark.asyncio
+async def test_get_expenses_list_delegates_to_recent(mock_writer, mock_expenses_response):
+    """Test that get_expenses_list calls get_recent_expenses with limit=50."""
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_expenses_response)
+
+    expenses = await writer.get_expenses_list()
+
+    call_kwargs = mock_client.request.call_args.kwargs
+    assert call_kwargs["body"]["page_size"] == 50
+
+
+# ─────────────────────────────────────────────
+# Categories – get_category by id
+# ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_category_success(mock_writer, mock_categories_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_categories_response)
+
+    category = await writer.get_category("uuid_category_1")
+
+    assert category is not None
+    assert category.id == "uuid_category_1"
+    assert category.name == "Products"
+
+
+@pytest.mark.asyncio
+async def test_get_category_not_found(mock_writer, mock_categories_response):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(return_value=mock_categories_response)
+
+    category = await writer.get_category("nonexistent_id")
+
+    assert category is None
+
+
+@pytest.mark.asyncio
+async def test_get_category_failure(mock_writer):
+    writer, mock_client = mock_writer
+    mock_client.request = AsyncMock(side_effect=Exception("API Error"))
+
+    category = await writer.get_category("some_id")
+
+    assert category is None
+
+
+# ─────────────────────────────────────────────
+# Cascade delete: group expense + its expenses
+# ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_delete_group_expense_cascades_related_expenses(mock_writer, mock_group_expenses_response):
+    """
+    Simulates the handler logic: when deleting a group expense,
+    all related personal expenses should also be deleted.
+    """
+    writer, mock_client = mock_writer
+
+    page_data = mock_group_expenses_response["results"][0]
+    page_data["properties"]["Expenses"] = {
+        "relation": [{"id": "uuid_expense_1"}, {"id": "uuid_expense_2"}]
+    }
+    mock_client.pages.retrieve = AsyncMock(return_value=page_data)
+    mock_client.pages.update = AsyncMock(return_value={})
+
+    group_expenses = await writer.get_group_expenses(["uuid_grexpense_1"])
+    assert len(group_expenses) == 1
+    related_ids = group_expenses[0].expenses_relations
+    assert len(related_ids) == 2
+
+    # Simulate cascade delete (as the handler does)
+    for exp_id in related_ids:
+        await writer.delete_page(exp_id)
+    await writer.delete_page("uuid_grexpense_1")
+
+    # delete_page (pages.update archived=True) should be called 3 times total
+    assert mock_client.pages.update.call_count == 3
+    calls = [c.kwargs["page_id"] for c in mock_client.pages.update.call_args_list]
+    assert "uuid_expense_1" in calls
+    assert "uuid_expense_2" in calls
+    assert "uuid_grexpense_1" in calls
