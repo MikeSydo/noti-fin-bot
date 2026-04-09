@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -16,13 +18,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-import sys
-import os
+# Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import settings as app_settings
-from db import Base
-import models.user  # ensure models are loaded
+from config import settings as app_settings  # noqa: E402
+from db import Base  # noqa: E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support

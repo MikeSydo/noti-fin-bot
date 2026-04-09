@@ -5,7 +5,6 @@ from bot import bot
 
 from services.oauth_service import process_oauth_callback, validate_oauth_state
 from services.i18n import i18n
-from app.keyboards.reply import get_main_menu
 
 logger = logging.getLogger(__name__)
 

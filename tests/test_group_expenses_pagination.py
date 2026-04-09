@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.handlers.group_expenses import process_expense_toggle, AddGroupExpenseState
+from app.handlers.group_expenses import process_expense_toggle
 
 @pytest.mark.asyncio
 async def test_process_expense_toggle_maintains_page():

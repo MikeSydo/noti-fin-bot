@@ -6,7 +6,7 @@ from typing import Optional
 import aiohttp
 from config import settings
 from services.security import encrypt_token, decrypt_token
-from services.user_service import get_user, create_or_update_user, get_user_by_oauth_state
+from services.user_service import create_or_update_user, get_user_by_oauth_state
 
 logger = logging.getLogger(__name__)
 

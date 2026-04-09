@@ -53,7 +53,8 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
         # Determine mime-type for Gemini
         extension = file.file_path.split('.')[-1].lower() if '.' in file.file_path else "jpg"
         mime_type = "application/pdf" if extension == "pdf" else f"image/{extension}"
-        if extension in ["jpg", "jpeg"]: mime_type = "image/jpeg"
+        if extension in ["jpg", "jpeg"]:
+            mime_type = "image/jpeg"
 
         parsed_data = await parse_receipt(bts, category_names, lang_code=lang_code, mime_type=mime_type)
 
@@ -110,7 +111,6 @@ async def process_account_for_receipt(callback: CallbackQuery, state: FSMContext
     data = await state.get_data()
     parsed_data_dict = data.get("parsed_data")
     file_url = data.get("file_url")
-    processing_msg_id = data.get("processing_msg_id")
 
     await state.clear()
     

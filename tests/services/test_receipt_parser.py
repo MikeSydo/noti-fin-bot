@@ -2,7 +2,7 @@ import pytest
 import json
 import os
 from unittest.mock import AsyncMock, patch, MagicMock
-from services.receipt_parser import parse_receipt, ParsedReceipt
+from services.receipt_parser import parse_receipt
 
 # Path to real mock receipt image
 MOCK_RECEIPT_PATH = os.path.join(os.path.dirname(__file__), "../../mock_files/file_9.jpg")

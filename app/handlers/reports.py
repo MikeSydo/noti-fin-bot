@@ -4,7 +4,6 @@ from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 
 from services.i18n import i18n
-from services.notion_writer import NotionWriter
 from models.user import User
 
 router = Router()
