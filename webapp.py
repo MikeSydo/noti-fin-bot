@@ -39,14 +39,14 @@ async def handle_notion_oauth(request: web.Request) -> web.Response:
         asyncio.create_task(complete_oauth_discovery(token_response, telegram_id))
 
         # Return styled HTML success page immediately
-        html_content = """
+        html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Notion Connected!</title>
+            <title>{i18n.get_text('webapp_success_title', telegram_id)}</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body {
+                body {{
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                     display: flex;
                     flex-direction: column;
@@ -57,25 +57,25 @@ async def handle_notion_oauth(request: web.Request) -> web.Response:
                     background-color: #f4f4f9;
                     color: #333;
                     text-align: center;
-                }
-                .container {
+                }}
+                .container {{
                     padding: 2rem;
                     background: white;
                     border-radius: 12px;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
                     max-width: 400px;
-                }
-                h1 { color: #000; margin-bottom: 1rem; }
-                p { line-height: 1.5; color: #666; }
-                .icon { font-size: 3rem; margin-bottom: 1rem; }
+                }}
+                h1 {{ color: #000; margin-bottom: 1rem; }}
+                p {{ line-height: 1.5; color: #666; }}
+                .icon {{ font-size: 3rem; margin-bottom: 1rem; }}
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="icon">✅</div>
-                <h1>Notion Connected!</h1>
-                <p>Authentication successful. We are now setting up your databases in the background.</p>
-                <p><strong>You can safely close this window and return to your Telegram bot.</strong></p>
+                <h1>{i18n.get_text('webapp_success_title', telegram_id)}</h1>
+                <p>{i18n.get_text('webapp_success_desc1', telegram_id)}</p>
+                <p><strong>{i18n.get_text('webapp_success_desc2', telegram_id)}</strong></p>
             </div>
         </body>
         </html>

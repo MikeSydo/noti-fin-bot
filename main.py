@@ -6,7 +6,7 @@ from config import settings
 from app.handlers import manual, receipt, accounts, expenses, group_expenses, reports
 from app.middleware.auth import AuthMiddleware
 from aiogram.types import BotCommand
-from database import init_db
+from db import init_db
 from services.i18n import i18n
 from webapp import setup_webapp
 from aiohttp import web

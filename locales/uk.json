@@ -189,5 +189,8 @@
   "grexp_load_failed": "Не вдалось завантажити файл.",
   "grexp_no_expenses_available": "Немає доступних витрат для зв'язування.",
   "grexp_choose_expenses": "Виберіть пов'язані витрати:",
-  "grexp_no_expenses": "Спільних витрат не знайдено."
+  "grexp_no_expenses": "Спільних витрат не знайдено.",
+  "webapp_success_title": "Notion Підключено!",
+  "webapp_success_desc1": "Автентифікація успішна. Ми налаштовуємо ваші бази даних у фоновому режимі.",
+  "webapp_success_desc2": "Ви можете безпечно закрити це вікно і повернутися до вашого Telegram бота."
 }

@@ -189,5 +189,8 @@
   "grexp_load_failed": "Failed to upload the file.",
   "grexp_no_expenses_available": "No expenses available to link.",
   "grexp_choose_expenses": "Select related expenses:",
-  "grexp_no_expenses": "No group expenses found."
+  "grexp_no_expenses": "No group expenses found.",
+  "webapp_success_title": "Notion Connected!",
+  "webapp_success_desc1": "Authentication successful. We are now setting up your databases in the background.",
+  "webapp_success_desc2": "You can safely close this window and return to your Telegram bot."
 }
