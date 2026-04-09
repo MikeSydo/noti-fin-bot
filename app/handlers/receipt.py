@@ -49,7 +49,13 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
 
         lang_code = i18n.get_user_lang(user_id) or "uk"
         bts = file_bytes.read()
-        parsed_data = await parse_receipt(bts, category_names, lang_code=lang_code)
+        
+        # Determine mime-type for Gemini
+        extension = file.file_path.split('.')[-1].lower() if '.' in file.file_path else "jpg"
+        mime_type = "application/pdf" if extension == "pdf" else f"image/{extension}"
+        if extension in ["jpg", "jpeg"]: mime_type = "image/jpeg"
+
+        parsed_data = await parse_receipt(bts, category_names, lang_code=lang_code, mime_type=mime_type)
 
         if not parsed_data or not parsed_data.is_receipt:
             await processing_msg.edit_text(i18n.get_text('rcp_not_receipt', user_id))
@@ -63,9 +69,8 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
 
         # Prepare state data for the next step
         # Upload image to S3 to get a permanent URL for Notion
-        # Read the bytes into memory (they were consumed by parse_receipt, but wait, bts was read!)
-        # We need to re-read or use the original bts
-        file_url = await upload_receipt_to_s3(bts, file_extension="jpg")
+        extension = file.file_path.split('.')[-1] if '.' in file.file_path else "jpg"
+        file_url = await upload_receipt_to_s3(bts, file_extension=extension)
         
         await state.update_data(
             parsed_data=parsed_data.model_dump(),

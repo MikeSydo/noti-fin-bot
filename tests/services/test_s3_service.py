@@ -17,12 +17,16 @@ async def test_upload_receipt_to_s3_success(mock_s3):
     config.settings.AWS_REGION = "us-east-1"
 
     from services.s3_service import upload_receipt_to_s3
-    result = await upload_receipt_to_s3(b"fake_image_bytes", file_extension="jpg")
+    result = await upload_receipt_to_s3(b"fake_image_bytes", file_extension="png")
 
     assert result is not None
     assert result.startswith("https://test-bucket.s3.us-east-1.amazonaws.com/receipts/")
-    assert result.endswith(".jpg")
-    mock_s3.upload_fileobj.assert_called_once()
+    assert result.endswith(".png")
+    
+    # Verify ContentType matches the extension
+    call_args = mock_s3.upload_fileobj.call_args
+    extra_args = call_args.kwargs.get("ExtraArgs", {})
+    assert extra_args.get("ContentType") == "image/png"
 
 
 @pytest.mark.asyncio

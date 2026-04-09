@@ -23,7 +23,7 @@ class ParsedReceipt(BaseModel):
     date: str = Field(description="Date of the receipt in DD-MM-YYYY format. Empty if not a receipt.")
     items: List[ParsedItem] = Field(description="List of purchased items")
 
-async def parse_receipt(image_bytes: bytes, categories: List[str], lang_code: str = "uk") -> Optional[ParsedReceipt]:
+async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str = "uk", mime_type: str = "image/jpeg") -> Optional[ParsedReceipt]:
     """
     Parses a receipt image using Gemini and extracts structured data.
     """
@@ -46,11 +46,11 @@ async def parse_receipt(image_bytes: bytes, categories: List[str], lang_code: st
         IMPORTANT: Your text responses (names, etc.) should primarily be in {lang_name} language where appropriate. Return response in structured JSON.
         """
         
-        image_part = types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+        file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
         response = await client.aio.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[prompt, image_part],
+            contents=[prompt, file_part],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=ParsedReceipt,
