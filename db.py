@@ -16,8 +16,8 @@ async def init_db():
             logger.info("Initializing database schema...")
             # Import all models so Base knows about them before creation
             import models.user  # noqa: F401
-            await conn.run_sync(Base.metadata.create_all)
-            logger.info("Database initialized successfully.")
+            # Base.metadata.create_all is now handled by Alembic migrations
+            logger.info("Database connection tested (schema managed by Alembic).")
     except Exception as e:
         logger.error(f"Error initializing DB: {e}")
         raise

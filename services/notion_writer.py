@@ -364,6 +364,10 @@ class NotionWriter:
                 account = await self.get_account(account_id) if account_id else None
                 category = await self.get_category(category_id) if category_id else None
 
+                expenses_relations = []
+                if "Expenses" in properties and properties["Expenses"]["relation"]:
+                    expenses_relations = [rel["id"] for rel in properties["Expenses"]["relation"]]
+
                 expense_dict = {
                     "id": response["id"],
                     "name": properties["Group Expense"]["title"][0]["text"]["content"] if properties["Group Expense"]["title"] else "",
@@ -371,7 +375,8 @@ class NotionWriter:
                     "date": datetime.fromisoformat(properties["Date"]["date"]["start"]) if properties["Date"]["date"] else datetime.now(),
                     "account": account,
                     "category": category,
-                    "receipt_url": receipt_url
+                    "receipt_url": receipt_url,
+                    "expenses_relations": expenses_relations
                 }
                 group_expenses.append(GroupExpense.model_validate(expense_dict))
             return group_expenses

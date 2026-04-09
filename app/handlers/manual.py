@@ -115,7 +115,7 @@ async def process_language_selection(message: Message):
     else:
         lang = "uk"
     
-    await i18n.set_user_lang(user_id, lang)
+    await i18n.set_user_lang(user_id, lang, username=message.from_user.username)
 
     # After language selection, check if Notion is connected
     user = await get_user(user_id)
@@ -160,4 +160,29 @@ async def cmd_cancel(message: Message, state: FSMContext):
     await message.answer(
         i18n.get_text('msg_action_cancelled', user_id),
         reply_markup=await get_main_menu(user_id),
+    )
+@router.message(Command('version'), StateFilter(any_state))
+async def cmd_version(message: Message):
+    """Answers for command /version."""
+    user_id = message.from_user.id
+    from config import settings
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=i18n.get_text('btn_release_notes', user_id),
+                url=settings.RELEASE_NOTES_URL
+            )]
+        ]
+    )
+    
+    await message.answer(
+        i18n.get_text(
+            'msg_version', 
+            user_id, 
+            version=settings.VERSION, 
+            env=settings.ENV_NAME.upper()
+        ), 
+        reply_markup=keyboard,
+        parse_mode="Markdown"
     )

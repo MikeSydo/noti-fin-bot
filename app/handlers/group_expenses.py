@@ -236,9 +236,10 @@ async def process_receipt_document(message: Message, state: FSMContext, notion_w
         file_url = None
         if file_id:
             file = await bot.get_file(file_id)
+            extension = file.file_path.split('.')[-1] if '.' in file.file_path else "jpg"
             file_bytes_io = await bot.download_file(file.file_path)
             file_bytes = file_bytes_io.read()
-            file_url = await upload_receipt_to_s3(file_bytes, file_extension="jpg")
+            file_url = await upload_receipt_to_s3(file_bytes, file_extension=extension)
         
         await state.update_data(receipt_url=file_url)
 
@@ -469,6 +470,14 @@ async def process_delete_group_expense(message: Message, state: FSMContext, noti
     deleting_msg = await message.answer(i18n.get_text('grexp_deleting', user_id), reply_markup=None)
 
     try:
+        # Cascade delete related personal expenses
+        group_expense_list = await notion_writer.get_group_expenses_by_ids([data['id']])
+        if group_expense_list:
+            group_expense = group_expense_list[0]
+            for related_expense_id in group_expense.expenses_relations:
+                await notion_writer.delete_page(related_expense_id)
+
+        # Delete the group expense itself
         success = await notion_writer.delete_page(data['id'])
 
         await deleting_msg.delete()

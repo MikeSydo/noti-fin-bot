@@ -6,7 +6,7 @@ from config import settings
 from app.handlers import manual, receipt, accounts, expenses, group_expenses, reports
 from app.middleware.auth import AuthMiddleware
 from aiogram.types import BotCommand
-from database import init_db
+from db import init_db
 from services.i18n import i18n
 from webapp import setup_webapp
 from aiohttp import web
@@ -22,6 +22,7 @@ async def set_bot_commands():
         BotCommand(command="disconnect", description="Відключити Notion"),
         BotCommand(command="help", description="Довідка"),
         BotCommand(command="cancel", description="Скасувати поточну дію"),
+        BotCommand(command="version", description="Версія та зміни"),
     ]
     await bot.set_my_commands(commands)
 
@@ -30,9 +31,9 @@ async def start_web_server():
     app = setup_webapp()
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', settings.PORT)
     await site.start()
-    logging.info("Aiohttp internal WebServer is running on port 8080.")
+    logging.info(f"Aiohttp internal WebServer is running on port {settings.PORT}.")
 
 async def main():
     """Main function - start polling."""
@@ -57,7 +58,7 @@ async def main():
     dp.include_router(reports.router)
 
     await set_bot_commands()
-    logging.info("Bot commands updated in the menu.")
+    logging.info(f"Bot commands updated. Environment: {settings.ENV_NAME}, Version: {settings.VERSION}")
 
 
     # Start the web server concurrently

@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 from sqlalchemy.future import select
-from database import AsyncSessionLocal
+from db import AsyncSessionLocal
 from models.user import User
 
 logger = logging.getLogger(__name__)
