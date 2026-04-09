@@ -709,7 +709,7 @@ async def test_get_expenses_list_delegates_to_recent(mock_writer, mock_expenses_
     writer, mock_client = mock_writer
     mock_client.request = AsyncMock(return_value=mock_expenses_response)
 
-    expenses = await writer.get_expenses_list()
+    await writer.get_expenses_list()
 
     call_kwargs = mock_client.request.call_args.kwargs
     assert call_kwargs["body"]["page_size"] == 50

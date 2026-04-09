@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   app:
-    build: .
+    image: ${DOCKER_USERNAME}/notion-finance-bot:latest
     container_name: notion_finance_bot
     restart: always
     env_file:

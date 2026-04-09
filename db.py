@@ -12,7 +12,7 @@ Base = declarative_base()
 
 async def init_db():
     try:
-        async with engine.begin() as conn:
+        async with engine.begin():
             logger.info("Initializing database schema...")
             # Import all models so Base knows about them before creation
             import models.user  # noqa: F401

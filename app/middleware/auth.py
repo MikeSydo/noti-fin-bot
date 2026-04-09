@@ -95,4 +95,5 @@ class AuthMiddleware(BaseMiddleware):
             return
 
         data["notion_writer"] = writer
+        data["user"] = user
         return await handler(event, data)

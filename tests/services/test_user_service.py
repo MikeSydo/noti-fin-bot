@@ -103,7 +103,7 @@ async def test_create_or_update_user_creates_new(mock_session_factory):
     mock_session_factory.return_value = mock_session
 
     from services.user_service import create_or_update_user
-    user = await create_or_update_user(999, username="newuser", language="uk")
+    await create_or_update_user(999, username="newuser", language="uk")
 
     mock_session.add.assert_called_once()
     mock_session.commit.assert_called_once()

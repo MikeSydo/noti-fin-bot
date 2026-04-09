@@ -6,7 +6,7 @@ from typing import Optional
 import aiohttp
 from config import settings
 from services.security import encrypt_token, decrypt_token
-from services.user_service import get_user, create_or_update_user, get_user_by_oauth_state
+from services.user_service import create_or_update_user, get_user_by_oauth_state
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
 
     async with aiohttp.ClientSession() as session:
         async def scan_block(block_id: str, depth: int = 0):
-            if depth > 1:  # Only look 2 levels deep to avoid infinite recursion
+            if depth > 3:  # Only look 4 levels deep to find nested Stats pages
                 return
             
             logger.info(f"Scanning children of block {block_id} (depth {depth})...")
@@ -204,19 +204,27 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
                 b_type = block.get("type")
                 if b_type == "child_database":
                     db_title = block.get("child_database", {}).get("title", "")
-                    logger.info(f"Found database: '{db_title}' (ID: {block['id']})")
+                    logger.info(f"Checking database: '{db_title}' (ID: {block['id']})")
                     
                     for expected_title, field_name in db_mapping.items():
                         if expected_title.lower() in db_title.lower():
                             if field_name not in result:
                                 result[field_name] = block["id"]
-                                logger.info(f"MATCHED: '{db_title}' -> {field_name}")
+                                logger.info(f"MATCHED DB: '{db_title}' -> {field_name}")
                             break
                             
                 elif b_type == "child_page":
                     page_title = block.get("child_page", {}).get("title", "")
-                    logger.info(f"Found child page: '{page_title}'. Checking inside...")
-                    # Recursively scan child pages (especially like "Database" page)
+                    logger.info(f"Checking child page: '{page_title}' (ID: {block['id']})")
+                    
+                    # Discover Stats page (flexible matching)
+                    clean_title = page_title.strip().lower()
+                    if clean_title == "stats" or clean_title == "statistics":
+                        result["stats_page_id"] = block["id"]
+                        logger.info(f"MATCHED Stats page: '{page_title}' -> stats_page_id")
+                        continue
+
+                    # Recursively scan child pages
                     try:
                         await scan_block(block["id"], depth + 1)
                     except Exception as e:
@@ -225,17 +233,23 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
         # Start scanning from the root duplicated template
         await scan_block(duplicated_template_id)
 
-    found = len(result)
-    expected = 4
-    if found < expected:
-        logger.warning(f"Only found {found}/{expected} unique databases in template. Found fields: {list(result.keys())}")
+    found_dbs = sum(1 for k in db_mapping.values() if k in result)
+    expected_dbs = 4
+    if found_dbs < expected_dbs:
+        logger.warning(f"Only found {found_dbs}/{expected_dbs} unique databases in template. Found fields: {list(result.keys())}")
+    
+    if "stats_page_id" not in result:
+        logger.warning("Stats page was not found in the template.")
 
     return result if result else None
 
 
-async def search_databases_globally(access_token: str) -> Optional[dict[str, str]]:
-    """Search for databases in the entire shared workspace using Notion Search API."""
-    logger.info("Starting global database search via Notion Search API...")
+async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
+    """
+    Search for both databases and the Stats page in the entire shared workspace 
+    using Notion Search API. Does two passes to avoid result limits.
+    """
+    logger.info("Starting global Notion search (2-pass)...")
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
@@ -252,31 +266,62 @@ async def search_databases_globally(access_token: str) -> Optional[dict[str, str
     
     async with aiohttp.ClientSession() as session:
         url = "https://api.notion.com/v1/search"
-        payload = {
+        
+        # Pass 1: Search for Databases (filtered)
+        logger.info("Pass 1: Searching for databases...")
+        payload_db = {
             "filter": {"value": "database", "property": "object"},
             "page_size": 100
         }
-        async with session.post(url, headers=headers, json=payload) as resp:
-            if resp.status != 200:
-                logger.error(f"Global search failed: {await resp.text()}")
-                return None
-            data = await resp.json()
+        async with session.post(url, headers=headers, json=payload_db) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                dbs = data.get("results", [])
+                logger.info(f"Found {len(dbs)} databases globally.")
+                for db in dbs:
+                    title_list = db.get("title", [])
+                    title_text = "".join([t.get("plain_text", "") for t in title_list])
+                    for expected_title, field_name in db_mapping.items():
+                        if expected_title.lower() in title_text.lower():
+                            if field_name not in result:
+                                result[field_name] = db["id"]
+                                logger.info(f"MATCHED DB (Global): '{title_text}' -> {field_name}")
+                            break
+            else:
+                logger.error(f"Global DB search failed: {await resp.text()}")
 
-        dbs = data.get("results", [])
-        logger.info(f"Search found {len(dbs)} databases in the workspace scope.")
-        
-        for db in dbs:
-            # Extract title from title array
-            title_list = db.get("title", [])
-            db_title = "".join([t.get("plain_text", "") for t in title_list])
-            logger.info(f"Found accessible database: '{db_title}' (ID: {db['id']})")
-            
-            for expected_title, field_name in db_mapping.items():
-                if expected_title.lower() in db_title.lower():
-                    if field_name not in result:
-                        result[field_name] = db["id"]
-                        logger.info(f"MATCHED (Global): '{db_title}' -> {field_name}")
-                    break
+        # Pass 2: Search for Stats Page (query-augmented)
+        logger.info("Pass 2: Searching for Stats page...")
+        payload_page = {
+            "query": "Stats",
+            "filter": {"value": "page", "property": "object"},
+            "page_size": 20
+        }
+        async with session.post(url, headers=headers, json=payload_page) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                pages = data.get("results", [])
+                logger.info(f"Found {len(pages)} pages globally matching 'Stats'.")
+                for page in pages:
+                    properties = page.get("properties", {})
+                    title_text = ""
+                    for prop in properties.values():
+                        if prop.get("type") == "title":
+                            title_list = prop.get("title", [])
+                            title_text = "".join([t.get("plain_text", "") for t in title_list])
+                            break
+                    
+                    if not title_text:
+                        continue
+                        
+                    clean_title = title_text.strip().lower()
+                    if "stats" in clean_title or "statistics" in clean_title:
+                        if "stats_page_id" not in result:
+                            result["stats_page_id"] = page["id"]
+                            logger.info(f"MATCHED Stats page (Global): '{title_text}' -> stats_page_id")
+                            break
+            else:
+                logger.error(f"Global Page search failed: {await resp.text()}")
 
     return result if result else None
 
@@ -329,22 +374,32 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
     if refresh_token:
         update_data["notion_refresh_token_encrypted"] = encrypt_token(refresh_token)
 
-    # Discover database IDs
-    db_ids = None
+    # Discover database IDs from template
+    db_ids = {}
     if duplicated_template_id:
         logger.info(f"Duplicated template ID found: {duplicated_template_id} for user {telegram_id}. Starting discovery...")
-        db_ids = await discover_database_ids(access_token, duplicated_template_id)
+        db_ids = await discover_database_ids(access_token, duplicated_template_id) or {}
     
-    # Fallback to global search if no IDs found or no template ID provided
-    if not db_ids:
-        logger.info(f"Falling back to global search for databases for user {telegram_id}...")
-        db_ids = await search_databases_globally(access_token)
+    # Check if we are missing anything
+    required_ids = {"accounts_db_id", "expenses_db_id", "group_expenses_db_id", "categories_db_id", "stats_page_id"}
+    missing_ids = [k for k in required_ids if k not in db_ids]
+    
+    # Fallback to global search if anything is missing
+    if missing_ids:
+        logger.info(f"Missing {missing_ids} for user {telegram_id}. Falling back to global search...")
+        global_ids = await search_notion_globally(access_token)
+        if global_ids:
+            # Merge global results into db_ids, but don't overwrite what was already found in the template
+            for k, v in global_ids.items():
+                if k not in db_ids:
+                    db_ids[k] = v
+            logger.info(f"Global search added {len(global_ids)} IDs to results.")
 
     if db_ids:
         update_data.update(db_ids)
-        logger.info(f"Final discovered {len(db_ids)} databases for user {telegram_id}")
+        logger.info(f"Final discovered {len(db_ids)} objects for user {telegram_id}")
     else:
-        logger.warning(f"Could not find any matching databases (tried discovery and global search) for user {telegram_id}")
+        logger.warning(f"Could not find any matching objects (tried discovery and global search) for user {telegram_id}")
 
     # Check if all 4 databases were found
     expected_dbs = {"accounts_db_id", "expenses_db_id", "group_expenses_db_id", "categories_db_id"}

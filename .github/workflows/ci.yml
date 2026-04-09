@@ -1,0 +1,94 @@
+name: CI (Lint, Test, Build)
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: Lint with ruff
+        run: ruff check .
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: notion_finance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5432/notion_finance_test
+          ENV: test
+          TELEGRAM_BOT_TOKEN: "123:abc"
+          GEMINI_API_KEY: "dummy"
+          FERNET_KEY: "rURsBpUenqgT3iCG-mm-YQWeGl0kSDioPF146rjPhho="
+          NOTION_CLIENT_ID: "dummy"
+          NOTION_CLIENT_SECRET: "dummy"
+          NOTION_REDIRECT_URI: "http://localhost:8080/auth/callback"
+          RELEASE_NOTES_URL: "https://example.com"
+          AWS_REGION: "us-east-1"
+          AWS_S3_BUCKET_NAME: "test-bucket"
+          AWS_ACCESS_KEY_ID: "dummy"
+          AWS_SECRET_ACCESS_KEY: "dummy"
+        run: pytest tests/ -v
+
+  build-and-push:
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/notion-finance-bot:latest
+            ${{ secrets.DOCKER_USERNAME }}/notion-finance-bot:${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

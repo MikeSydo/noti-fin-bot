@@ -35,17 +35,23 @@ jobs:
         uses: appleboy/ssh-action@master
         env:
           APP_VERSION: ${{ github.ref_name }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         with:
 
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_VERSION
+          envs: APP_VERSION,DOCKER_USERNAME,DOCKER_PASSWORD
           script: |
             cd ~/notion-finance-tracker
             
+            # Login to Docker Hub
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+
             # Create .env file with all necessary variables
             cat <<EOF > .env
+            DOCKER_USERNAME=$DOCKER_USERNAME
             # Telegram
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             
@@ -82,6 +88,6 @@ jobs:
             RELEASE_NOTES_URL=${{ secrets.RELEASE_NOTES_URL }}
             EOF
             
-            # Restart services with Docker Compose
-            docker compose down
-            docker compose up -d --build
+            # Pull new image and restart services
+            docker compose pull
+            docker compose up -d

@@ -23,6 +23,7 @@ class User(Base):
     expenses_db_id = Column(String(100), nullable=True)
     group_expenses_db_id = Column(String(100), nullable=True)
     categories_db_id = Column(String(100), nullable=True)
+    stats_page_id = Column(String(100), nullable=True)
 
     # OAuth CSRF protection
     oauth_state = Column(String(255), nullable=True, index=True)
