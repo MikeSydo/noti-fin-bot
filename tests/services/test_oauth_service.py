@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from services.oauth_service import generate_oauth_url, validate_oauth_state
+from services.oauth_service import generate_oauth_url, validate_oauth_state, search_notion_globally
 from models.user import User
 from datetime import datetime, timezone, timedelta
 
@@ -129,3 +129,45 @@ async def test_discover_database_ids_copy_indicator_skip(mock_get):
     # Should not raise exception, but return what it found (None since nothing matched)
     result = await discover_database_ids("fake_token", "template_id")
     assert result is None
+
+
+@pytest.mark.asyncio
+@patch('aiohttp.ClientSession.post')
+async def test_search_notion_globally_success(mock_post):
+    """Test that global search correctly matches databases and pages from two-pass search."""
+    # 1. Mock first pass (Databases)
+    mock_resp_db = MagicMock()
+    mock_resp_db.status = 200
+    mock_resp_db.json = AsyncMock(return_value={
+        "results": [
+            {"object": "database", "id": "db_exp", "title": [{"plain_text": "Expenses"}]},
+            {"object": "database", "id": "db_acc", "title": [{"plain_text": "Accounts"}]},
+        ]
+    })
+    
+    # 2. Mock second pass (Stats Page)
+    mock_resp_page = MagicMock()
+    mock_resp_page.status = 200
+    mock_resp_page.json = AsyncMock(return_value={
+        "results": [
+            {
+                "object": "page", 
+                "id": "page_stats", 
+                "properties": {
+                    "title": {"type": "title", "title": [{"plain_text": "Stats"}]}
+                }
+            }
+        ]
+    })
+    
+    mock_post.side_effect = [
+        MagicMock(__aenter__=AsyncMock(return_value=mock_resp_db)),
+        MagicMock(__aenter__=AsyncMock(return_value=mock_resp_page))
+    ]
+    
+    result = await search_notion_globally("fake_token")
+    
+    assert result["expenses_db_id"] == "db_exp"
+    assert result["accounts_db_id"] == "db_acc"
+    assert result["stats_page_id"] == "page_stats"
+    assert mock_post.call_count == 2
