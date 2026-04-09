@@ -51,7 +51,7 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
         file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model="models/gemini-flash-latest",
             contents=[prompt, file_part],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
