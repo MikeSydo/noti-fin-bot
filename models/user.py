@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, BigInteger, LargeBinary, DateTime, func
-from database import Base
+from db import Base
 
 
 class User(Base):
@@ -7,7 +7,7 @@ class User(Base):
 
     telegram_id = Column(BigInteger, primary_key=True)
     username = Column(String(255), nullable=True)
-    language = Column(String(5), default="uk", nullable=False)
+    language = Column(String(5), default="en", nullable=False)
 
     # Notion OAuth tokens (encrypted with Fernet)
     notion_access_token_encrypted = Column(LargeBinary, nullable=True)
