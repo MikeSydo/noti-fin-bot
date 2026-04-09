@@ -2,10 +2,9 @@ name: Deploy to DigitalOcean
 
 on:
   push:
-    branches:
-      - master
     tags:
-      - 'v*'
+      - '*'
+
 
 jobs:
   deploy:
