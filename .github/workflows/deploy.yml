@@ -7,10 +7,29 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      contents: write
+      
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required for tagging logic
+
+      - name: Generate and push new tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
+
+      - name: Create a GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
 
       - name: Remove unnecessary files
         run: rm -rf .venv .git __pycache__ .pytest_cache tests README.md README.dev.md .github
@@ -29,10 +48,13 @@ jobs:
 
       - name: Executing remote ssh commands to deploy
         uses: appleboy/ssh-action@master
+        env:
+          APP_VERSION: ${{ steps.tag_version.outputs.new_tag }}
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
+          envs: APP_VERSION
           script: |
             cd ~/notion-finance-tracker
             
@@ -70,6 +92,8 @@ jobs:
             # Server & Environment
             PORT=${{ secrets.PORT }}
             ENV=prod
+            VERSION=$APP_VERSION
+            RELEASE_NOTES_URL=${{ secrets.RELEASE_NOTES_URL }}
             EOF
             
             # Restart services with Docker Compose

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # App Info
-    VERSION: str
+    VERSION: str = "0.0.0-dev"
     ENV_NAME: str = ENV
     RELEASE_NOTES_URL: str
 
