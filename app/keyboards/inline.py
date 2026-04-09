@@ -136,7 +136,7 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
         builder.add(
             InlineKeyboardButton(
                 text=f"{check_icon} {expense.name} ({expense.amount or 0:.2f} | {date_str})",
-                callback_data=f"toggle_grexpense_rel_{expense.id}"
+                callback_data=f"toggle_grexpense_rel_{expense.id}:{page}"
             )
         )
     # 1 button per row gives more horizontal space

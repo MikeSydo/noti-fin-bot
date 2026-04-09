@@ -284,7 +284,18 @@ async def show_expenses_selection(message: Message, state: FSMContext, notion_wr
 async def process_expense_toggle(callback: CallbackQuery, state: FSMContext, notion_writer: NotionWriter):
     """Toggle the selection of an expense."""
     user_id = callback.from_user.id
-    expense_id = callback.data.replace('toggle_grexpense_rel_', '')
+    expense_data = callback.data.replace('toggle_grexpense_rel_', '')
+    expense_id = expense_data
+    page = 0
+    
+    if ":" in expense_data:
+        parts = expense_data.split(":")
+        expense_id = parts[0]
+        try:
+            page = int(parts[1])
+        except (ValueError, IndexError):
+            page = 0
+
     data = await state.get_data()
     selected_ids = set(data.get("selected_expenses_ids", []))
 
@@ -295,10 +306,7 @@ async def process_expense_toggle(callback: CallbackQuery, state: FSMContext, not
 
     await state.update_data(selected_expenses_ids=list(selected_ids))
     
-    # Needs to figure out current page from the keyboard, unfortunately aiogram 3 
-    # doesn't make it easy to pass page via callback data if we just do toggle. 
-    # We just keep page 0 or re-parse. We fix to page 0 for simplicity.
-    await show_expenses_selection(callback.message, state, notion_writer, user_id, page=0, edit_message=True)
+    await show_expenses_selection(callback.message, state, notion_writer, user_id, page=page, edit_message=True)
     await callback.answer()
 
 
