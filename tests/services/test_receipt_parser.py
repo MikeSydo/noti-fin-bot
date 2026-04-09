@@ -4,13 +4,16 @@ import os
 from unittest.mock import AsyncMock, patch, MagicMock
 from services.receipt_parser import parse_receipt
 
-# Path to real mock receipt image
-MOCK_RECEIPT_PATH = os.path.join(os.path.dirname(__file__), "../../mock_files/file_9.jpg")
+# Path to real mock receipt image - use absolute path to be more robust in CI
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MOCK_RECEIPT_PATH = os.path.join(BASE_DIR, "mock_files/file_9.jpg")
 
 
 @pytest.fixture
 def mock_receipt_bytes() -> bytes:
     """Load real receipt image bytes from mock_files."""
+    if not os.path.exists(MOCK_RECEIPT_PATH):
+        raise FileNotFoundError(f"Mock receipt file not found at: {MOCK_RECEIPT_PATH}")
     with open(MOCK_RECEIPT_PATH, "rb") as f:
         return f.read()
 
