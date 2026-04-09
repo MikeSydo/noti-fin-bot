@@ -101,6 +101,7 @@ async def test_discover_database_ids_success_en(mock_get):
             {"type": "child_database", "id": "db_2", "child_database": {"title": "Accounts"}},
             {"type": "child_database", "id": "db_3", "child_database": {"title": "Categories"}},
             {"type": "child_database", "id": "db_4", "child_database": {"title": "Group Expenses"}},
+            {"type": "child_page", "id": "page_stats", "child_page": {"title": "Stats"}},
         ]
     })
     mock_get.return_value.__aenter__.return_value = mock_resp
@@ -111,6 +112,7 @@ async def test_discover_database_ids_success_en(mock_get):
     assert result["accounts_db_id"] == "db_2"
     assert result["categories_db_id"] == "db_3"
     assert result["group_expenses_db_id"] == "db_4"
+    assert result["stats_page_id"] == "page_stats"
 
 
 @pytest.mark.asyncio

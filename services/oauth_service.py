@@ -215,7 +215,15 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
                             
                 elif b_type == "child_page":
                     page_title = block.get("child_page", {}).get("title", "")
-                    logger.info(f"Found child page: '{page_title}'. Checking inside...")
+                    logger.info(f"Found child page: '{page_title}'")
+                    
+                    # Discover Stats page
+                    if page_title.lower() == "stats":
+                        result["stats_page_id"] = block["id"]
+                        logger.info(f"MATCHED Stats page: '{page_title}' -> stats_page_id")
+                        continue
+
+                    logger.info(f"Checking inside child page: '{page_title}'...")
                     # Recursively scan child pages (especially like "Database" page)
                     try:
                         await scan_block(block["id"], depth + 1)
@@ -225,10 +233,13 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
         # Start scanning from the root duplicated template
         await scan_block(duplicated_template_id)
 
-    found = len(result)
-    expected = 4
-    if found < expected:
-        logger.warning(f"Only found {found}/{expected} unique databases in template. Found fields: {list(result.keys())}")
+    found_dbs = sum(1 for k in db_mapping.values() if k in result)
+    expected_dbs = 4
+    if found_dbs < expected_dbs:
+        logger.warning(f"Only found {found_dbs}/{expected_dbs} unique databases in template. Found fields: {list(result.keys())}")
+    
+    if "stats_page_id" not in result:
+        logger.warning("Stats page was not found in the template.")
 
     return result if result else None
 
