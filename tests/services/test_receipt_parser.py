@@ -55,8 +55,11 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
         "total_amount": 506.06,
         "date": "28-03-2026",
         "items": [
-            {"name": "LOVITA ПЕЧ ФУНДУК 127Г", "amount": 64.74, "category_name": "Продукти"},
-        ]
+            {"name": "LOVITA ПЕЧ ФУНДУК 127Г", "amount": 64.74, "category_name": "Продукти", "is_uncertain": False},
+        ],
+        "confidence_score": 100,
+        "currency_hint": "UAH",
+        "uncertain_fields": []
     }
     mock_response.text = json.dumps(mock_data)
     mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
@@ -75,7 +78,17 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
 async def test_parse_receipt_png_success(mock_genai_client, mock_png_bytes):
     """Test that a real PNG receipt image is correctly parsed."""
     mock_response = MagicMock()
-    mock_response.text = json.dumps({"is_receipt": True, "store_name": "Apple", "total_amount": 9.99, "items": [], "group_expense_name": "Test", "date": "01-01-2026"})
+    mock_response.text = json.dumps({
+        "is_receipt": True, 
+        "store_name": "Apple", 
+        "total_amount": 9.99, 
+        "items": [], 
+        "group_expense_name": "Test", 
+        "date": "01-01-2026",
+        "confidence_score": 100,
+        "currency_hint": "USD",
+        "uncertain_fields": []
+    })
     mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
     result = await parse_receipt(mock_png_bytes, [], lang_code="en", mime_type="image/png")
@@ -90,7 +103,17 @@ async def test_parse_receipt_png_success(mock_genai_client, mock_png_bytes):
 async def test_parse_receipt_pdf_success(mock_genai_client, mock_pdf_bytes):
     """Test that a real PDF receipt is correctly parsed."""
     mock_response = MagicMock()
-    mock_response.text = json.dumps({"is_receipt": True, "store_name": "Google", "total_amount": 1.99, "items": [], "group_expense_name": "Test", "date": "01-01-2026"})
+    mock_response.text = json.dumps({
+        "is_receipt": True, 
+        "store_name": "Google", 
+        "total_amount": 1.99, 
+        "items": [], 
+        "group_expense_name": "Test", 
+        "date": "01-01-2026",
+        "confidence_score": 100,
+        "currency_hint": "USD",
+        "uncertain_fields": []
+    })
     mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
     result = await parse_receipt(mock_pdf_bytes, [], lang_code="en", mime_type="application/pdf")
@@ -105,7 +128,17 @@ async def test_parse_receipt_pdf_success(mock_genai_client, mock_pdf_bytes):
 async def test_parse_receipt_retry_logic(mock_genai_client):
     """Test that parse_receipt retries on 503 errors and eventually succeeds."""
     mock_response = MagicMock()
-    mock_data = {"is_receipt": False, "store_name": "", "group_expense_name": "", "total_amount": 0.0, "date": "", "items": []}
+    mock_data = {
+        "is_receipt": False, 
+        "store_name": "", 
+        "group_expense_name": "", 
+        "total_amount": 0.0, 
+        "date": "", 
+        "items": [],
+        "confidence_score": 0,
+        "currency_hint": "",
+        "uncertain_fields": []
+    }
     mock_response.text = json.dumps(mock_data)
 
     # First and second calls raise 503, third call succeeds
