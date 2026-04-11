@@ -112,18 +112,23 @@ jobs:
           AWS_S3_BUCKET_NAME: "test-bucket"
           AWS_ACCESS_KEY_ID: "dummy"
           AWS_SECRET_ACCESS_KEY: "dummy"
+          PYTHONPATH: .
         run: |
           if [ "${{ needs.filter.outputs.global }}" == "true" ]; then
             echo "Global changes detected. Running all tests..."
-            pytest tests/ -v
+            python -m pytest tests/ -v
           else
             TEST_PATHS=""
             if [ "${{ needs.filter.outputs.db }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/db/"; fi
             if [ "${{ needs.filter.outputs.services }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/services/"; fi
             if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/handlers/"; fi
             
-            echo "Running selective tests: $TEST_PATHS"
-            pytest $TEST_PATHS -v
+            if [ -z "$TEST_PATHS" ]; then
+              echo "No selective tests found, skipping."
+            else
+              echo "Running selective tests: $TEST_PATHS"
+              python -m pytest $TEST_PATHS -v
+            fi
           fi
 
   build-and-push:
