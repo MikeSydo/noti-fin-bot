@@ -262,7 +262,8 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
         "Expenses": "expenses_db_id",
         "Categories": "categories_db_id",
     }
-    result = {}
+    # results_by_parent will store: { parent_id: { field_name: db_id } }
+    results_by_parent = {}
     
     async with aiohttp.ClientSession() as session:
         url = "https://api.notion.com/v1/search"
@@ -279,13 +280,22 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
                 dbs = data.get("results", [])
                 logger.info(f"Found {len(dbs)} databases globally.")
                 for db in dbs:
+                    # Get parent ID for grouping
+                    parent = db.get("parent", {})
+                    parent_id = parent.get("page_id") or parent.get("database_id") or "root"
+                    
                     title_list = db.get("title", [])
                     title_text = "".join([t.get("plain_text", "") for t in title_list])
+                    
                     for expected_title, field_name in db_mapping.items():
                         if expected_title.lower() in title_text.lower():
-                            if field_name not in result:
-                                result[field_name] = db["id"]
-                                logger.info(f"MATCHED DB (Global): '{title_text}' -> {field_name}")
+                            if parent_id not in results_by_parent:
+                                results_by_parent[parent_id] = {}
+                            
+                            # Store only if not already found for THIS parent (though usually titles are unique in a page)
+                            if field_name not in results_by_parent[parent_id]:
+                                results_by_parent[parent_id][field_name] = db["id"]
+                                logger.info(f"Matched DB (Global): '{title_text}' under {parent_id} -> {field_name}")
                             break
             else:
                 logger.error(f"Global DB search failed: {await resp.text()}")
@@ -303,6 +313,10 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
                 pages = data.get("results", [])
                 logger.info(f"Found {len(pages)} pages globally matching 'Stats'.")
                 for page in pages:
+                    # Get parent ID for grouping
+                    parent = page.get("parent", {})
+                    parent_id = parent.get("page_id") or parent.get("database_id") or "root"
+                    
                     properties = page.get("properties", {})
                     title_text = ""
                     for prop in properties.values():
@@ -316,14 +330,24 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
                         
                     clean_title = title_text.strip().lower()
                     if "stats" in clean_title or "statistics" in clean_title:
-                        if "stats_page_id" not in result:
-                            result["stats_page_id"] = page["id"]
-                            logger.info(f"MATCHED Stats page (Global): '{title_text}' -> stats_page_id")
-                            break
+                        if parent_id not in results_by_parent:
+                            results_by_parent[parent_id] = {}
+                            
+                        if "stats_page_id" not in results_by_parent[parent_id]:
+                            results_by_parent[parent_id]["stats_page_id"] = page["id"]
+                            logger.info(f"Matched Stats page (Global): '{title_text}' under {parent_id} -> stats_page_id")
             else:
                 logger.error(f"Global Page search failed: {await resp.text()}")
 
-    return result if result else None
+    if not results_by_parent:
+        return None
+
+    # Pick the "best" parent: the one that has the most matching fields
+    best_parent_id = max(results_by_parent, key=lambda p_id: len(results_by_parent[p_id]))
+    result = results_by_parent[best_parent_id]
+    
+    logger.info(f"Selected parent '{best_parent_id}' with {len(result)} matching items as the best candidate.")
+    return result
 
 
 async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, dict]:
@@ -389,11 +413,23 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
         logger.info(f"Missing {missing_ids} for user {telegram_id}. Falling back to global search...")
         global_ids = await search_notion_globally(access_token)
         if global_ids:
-            # Merge global results into db_ids, but don't overwrite what was already found in the template
-            for k, v in global_ids.items():
-                if k not in db_ids:
-                    db_ids[k] = v
-            logger.info(f"Global search added {len(global_ids)} IDs to results.")
+            # We found a better candidate globally. 
+            # To ensure consistency, we don't just merge; we should ideally 
+            # re-run discovery from the common parent if possible.
+            # However, search_notion_globally already returns a consistent set 
+            # from the 'best' parent it found.
+            
+            # If the global search found MORE than we have, or different ones, 
+            # let's trust its grouping.
+            if len(global_ids) > len(db_ids):
+                logger.info(f"Global search found a more complete project ({len(global_ids)} items). Switching to it.")
+                db_ids = global_ids
+            else:
+                # Merge only if it doesn't break consistency (heuristic: only if db_ids was empty)
+                for k, v in global_ids.items():
+                    if k not in db_ids:
+                        db_ids[k] = v
+            logger.info(f"Global search results processed. Current found count: {len(db_ids)}")
 
     if db_ids:
         update_data.update(db_ids)
