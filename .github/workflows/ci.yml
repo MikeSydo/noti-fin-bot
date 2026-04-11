@@ -6,7 +6,50 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      db: ${{ steps.filter.outputs.db }}
+      db_files: ${{ steps.filter.outputs.db_files }}
+      services: ${{ steps.filter.outputs.services }}
+      services_files: ${{ steps.filter.outputs.services_files }}
+      handlers: ${{ steps.filter.outputs.handlers }}
+      handlers_files: ${{ steps.filter.outputs.handlers_files }}
+      global: ${{ steps.filter.outputs.global }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          list-files: shell
+          filters: |
+            db:
+              - 'models/**'
+              - 'db.py'
+              - 'alembic/**'
+              - 'tests/db/**'
+            services:
+              - 'services/**'
+              - 'tests/services/**'
+            handlers:
+              - 'app/**'
+              - 'bot.py'
+              - 'webapp.py'
+              - 'tests/handlers/**'
+            global:
+              - 'requirements.txt'
+              - 'config.py'
+              - 'main.py'
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+              - 'tests/conftest.py'
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -23,7 +66,12 @@ jobs:
         run: ruff check .
 
   test:
-    needs: lint
+    needs: [filter, lint]
+    if: |
+      needs.filter.outputs.global == 'true' ||
+      needs.filter.outputs.db == 'true' ||
+      needs.filter.outputs.services == 'true' ||
+      needs.filter.outputs.handlers == 'true'
     runs-on: ubuntu-latest
     services:
       db:
@@ -64,7 +112,24 @@ jobs:
           AWS_S3_BUCKET_NAME: "test-bucket"
           AWS_ACCESS_KEY_ID: "dummy"
           AWS_SECRET_ACCESS_KEY: "dummy"
-        run: pytest tests/ -v
+          PYTHONPATH: .
+        run: |
+          if [ "${{ needs.filter.outputs.global }}" == "true" ]; then
+            echo "Global changes detected. Running all tests..."
+            python -m pytest tests/ -v
+          else
+            TEST_PATHS=""
+            if [ "${{ needs.filter.outputs.db }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/db/"; fi
+            if [ "${{ needs.filter.outputs.services }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/services/"; fi
+            if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/handlers/"; fi
+            
+            if [ -z "$TEST_PATHS" ]; then
+              echo "No selective tests found, skipping."
+            else
+              echo "Running selective tests: $TEST_PATHS"
+              python -m pytest $TEST_PATHS -v
+            fi
+          fi
 
   build-and-push:
     needs: test

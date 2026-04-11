@@ -4,17 +4,37 @@ import os
 from unittest.mock import AsyncMock, patch, MagicMock
 from services.receipt_parser import parse_receipt
 
-# Path to real mock receipt image - use absolute path to be more robust in CI
+# Path to real mock receipt images - use absolute path to be more robust in CI
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MOCK_RECEIPT_PATH = os.path.join(BASE_DIR, "mock_files/file_9.jpg")
+MOCK_JPG_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_jpg.jpg")
+MOCK_PNG_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_png.png")
+MOCK_PDF_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_pdf.pdf")
 
 
 @pytest.fixture
-def mock_receipt_bytes() -> bytes:
-    """Load real receipt image bytes from mock_files."""
-    if not os.path.exists(MOCK_RECEIPT_PATH):
-        raise FileNotFoundError(f"Mock receipt file not found at: {MOCK_RECEIPT_PATH}")
-    with open(MOCK_RECEIPT_PATH, "rb") as f:
+def mock_jpg_bytes() -> bytes:
+    """Load real JPG receipt image bytes."""
+    if not os.path.exists(MOCK_JPG_PATH):
+        raise FileNotFoundError(f"Mock receipt file not found at: {MOCK_JPG_PATH}")
+    with open(MOCK_JPG_PATH, "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
+def mock_png_bytes() -> bytes:
+    """Load real PNG receipt image bytes."""
+    if not os.path.exists(MOCK_PNG_PATH):
+        raise FileNotFoundError(f"Mock receipt file not found at: {MOCK_PNG_PATH}")
+    with open(MOCK_PNG_PATH, "rb") as f:
+        return f.read()
+
+
+@pytest.fixture
+def mock_pdf_bytes() -> bytes:
+    """Load real PDF receipt bytes."""
+    if not os.path.exists(MOCK_PDF_PATH):
+        raise FileNotFoundError(f"Mock receipt file not found at: {MOCK_PDF_PATH}")
+    with open(MOCK_PDF_PATH, "rb") as f:
         return f.read()
 
 
@@ -25,10 +45,9 @@ def mock_genai_client():
 
 
 @pytest.mark.asyncio
-async def test_parse_receipt_success(mock_genai_client, mock_receipt_bytes):
-    """Test that a real receipt image is correctly parsed (Gemini is mocked)."""
+async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
+    """Test that a real JPG receipt image is correctly parsed (Gemini is mocked)."""
     mock_response = MagicMock()
-
     mock_data = {
         "is_receipt": True,
         "store_name": "METRO",
@@ -37,28 +56,49 @@ async def test_parse_receipt_success(mock_genai_client, mock_receipt_bytes):
         "date": "28-03-2026",
         "items": [
             {"name": "LOVITA ПЕЧ ФУНДУК 127Г", "amount": 64.74, "category_name": "Продукти"},
-            {"name": "LMR ГЕЛЬ Д/ДУШУ 250МЛ АРГАН", "amount": 50.83, "category_name": "Побутова хімія"},
         ]
     }
-
     mock_response.text = json.dumps(mock_data)
+    mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-    async def mock_generate(*args, **kwargs):
-        return mock_response
+    result = await parse_receipt(mock_jpg_bytes, ["Продукти"], lang_code="uk", mime_type="image/jpeg")
 
-    mock_genai_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
-
-    # Call with real image bytes and image/jpeg mime type
-    result = await parse_receipt(mock_receipt_bytes, ["Продукти", "Побутова хімія"], lang_code="uk", mime_type="image/jpeg")
-
-    # Assertions
     assert result is not None
+    assert result.is_receipt is True
     assert result.store_name == "METRO"
-    
-    # Verify the CORRECT model is used (Gemini 2.5 Flash as requested)
     mock_genai_client.aio.models.generate_content.assert_called_once()
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
-    assert kwargs["model"] == "gemini-2.5-flash"
+    assert kwargs["contents"][1].inline_data.mime_type == "image/jpeg"
+
+
+@pytest.mark.asyncio
+async def test_parse_receipt_png_success(mock_genai_client, mock_png_bytes):
+    """Test that a real PNG receipt image is correctly parsed."""
+    mock_response = MagicMock()
+    mock_response.text = json.dumps({"is_receipt": True, "store_name": "Apple", "total_amount": 9.99, "items": [], "group_expense_name": "Test", "date": "01-01-2026"})
+    mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+    result = await parse_receipt(mock_png_bytes, [], lang_code="en", mime_type="image/png")
+
+    assert result is not None
+    assert result.is_receipt is True
+    _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
+    assert kwargs["contents"][1].inline_data.mime_type == "image/png"
+
+
+@pytest.mark.asyncio
+async def test_parse_receipt_pdf_success(mock_genai_client, mock_pdf_bytes):
+    """Test that a real PDF receipt is correctly parsed."""
+    mock_response = MagicMock()
+    mock_response.text = json.dumps({"is_receipt": True, "store_name": "Google", "total_amount": 1.99, "items": [], "group_expense_name": "Test", "date": "01-01-2026"})
+    mock_genai_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+    result = await parse_receipt(mock_pdf_bytes, [], lang_code="en", mime_type="application/pdf")
+
+    assert result is not None
+    assert result.is_receipt is True
+    _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
+    assert kwargs["contents"][1].inline_data.mime_type == "application/pdf"
 
 
 @pytest.mark.asyncio

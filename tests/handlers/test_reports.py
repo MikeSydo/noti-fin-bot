@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.handlers.reports import start_analytics
+from app.handlers.reports import start_report
 
 @pytest.mark.asyncio
 async def test_start_analytics_sends_link():
@@ -22,7 +22,7 @@ async def test_start_analytics_sends_link():
     user.stats_page_id = "abc-123-def-456"
     
     # 2. Call handler
-    await start_analytics(message, state, user)
+    await start_report(message, state, user)
     
     # 3. Assertions
     # Ensure message.answer was called
