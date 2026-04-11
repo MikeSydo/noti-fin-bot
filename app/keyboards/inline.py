@@ -176,3 +176,17 @@ async def get_skip_receipt_keyboard(user_id: int = None) -> InlineKeyboardMarkup
             [InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_receipt')]
         ],
     )
+
+async def get_receipt_confirm_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns a keyboard for receipt confirmation (Confirm/Edit Name/Cancel)."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text=i18n.get_text('btn_confirm', user_id), callback_data='confirm_receipt'),
+                InlineKeyboardButton(text=i18n.get_text('btn_edit_name', user_id), callback_data='edit_receipt_name')
+            ],
+            [
+                InlineKeyboardButton(text=i18n.get_text('btn_cancel', user_id), callback_data='cancel_receipt')
+            ]
+        ]
+    )

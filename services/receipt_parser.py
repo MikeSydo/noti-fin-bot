@@ -15,6 +15,7 @@ class ParsedItem(BaseModel):
     name: str = Field(description="Name of the item")
     amount: float = Field(description="Price/Amount of the item")
     category_name: Optional[str] = Field(description="Best fitting category name from the provided list, or None")
+    is_uncertain: bool = Field(description="Set to true if text is blurry, price is unclear, or you are guessing.")
 
 class ParsedReceipt(BaseModel):
     is_receipt: bool = Field(description="Set to true ONLY if the image is a receipt. Set to false if it's a person, landscape, or anything else.")
@@ -23,6 +24,9 @@ class ParsedReceipt(BaseModel):
     total_amount: float = Field(description="Total amount of the receipt. 0 if not a receipt.")
     date: str = Field(description="Date of the receipt in DD-MM-YYYY format. Empty if not a receipt.")
     items: List[ParsedItem] = Field(description="List of purchased items")
+    confidence_score: int = Field(description="Your confidence level from 0 to 100. Consider text clarity and if item sums match total.")
+    currency_hint: str = Field(description="Detected currency (e.g., UAH, USD, EUR). Default to UAH if unsure but looks like Ukraine.")
+    uncertain_fields: List[str] = Field(description="List of top-level field names you are unsure about (e.g., ['total_amount', 'date']).")
 
 async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str = "uk", mime_type: str = "image/jpeg") -> Optional[ParsedReceipt]:
     """
@@ -46,7 +50,15 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
             - A general name for the whole receipt (group_expense_name) such as "Продукти в Сільпо" or "Electronics in BestBuy".
             - Total amount (total_amount)
             - Date in DD-MM-YYYY format (date)
-            - A list of items (items), where each item has a name, amount, and category_name.
+            - A list of items (items), where each item has a name, amount, category_name, and is_uncertain flag.
+            - Detected currency (currency_hint)
+            - Confidence score (confidence_score) from 0 to 100.
+            - A list of uncertain field names (uncertain_fields).
+            
+            IMPORTANT RULES:
+            - If there are discounts or coupons, include them as separate items with NEGATIVE amount (e.g., name: "Discount", amount: -10.5).
+            - The sum of items (including discounts) should ideally match the total_amount.
+            - If the image is blurry, text is cut off, or you are making a guess about a specific field or item, set the corresponding "is_uncertain" or add it to "uncertain_fields".
             
             For the category_name, you MUST choose the best match from the following list of available categories:
             {', '.join(categories) if categories else 'None available'}
