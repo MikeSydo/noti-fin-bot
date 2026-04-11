@@ -244,10 +244,53 @@ async def discover_database_ids(access_token: str, duplicated_template_id: str) 
     return result if result else None
 
 
-async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
+async def get_notion_object_title(object_id: str, access_token: str) -> Optional[str]:
     """
-    Search for both databases and the Stats page in the entire shared workspace 
-    using Notion Search API. Does two passes to avoid result limits.
+    Fetch the title of a Notion object (page or database).
+    """
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Notion-Version": "2022-06-28",
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        # Try as page first
+        url_page = f"https://api.notion.com/v1/pages/{object_id}"
+        async with session.get(url_page, headers=headers) as resp:
+            logger.info(f"Fetching title for PAGE {object_id}: status {resp.status}")
+            if resp.status == 200:
+                data = await resp.json()
+                properties = data.get("properties", {})
+                # Try common title property names
+                for name, prop in properties.items():
+                    if prop.get("type") == "title":
+                        title_list = prop.get("title", [])
+                        t = "".join([t.get("plain_text", "") for t in title_list])
+                        if t:
+                            logger.info(f"Found PAGE title: '{t}' in property '{name}'")
+                            return t
+
+        # If not page, try as database
+        url_db = f"https://api.notion.com/v1/databases/{object_id}"
+        async with session.get(url_db, headers=headers) as resp:
+            logger.info(f"Fetching title for DB {object_id}: status {resp.status}")
+            if resp.status == 200:
+                data = await resp.json()
+                title_list = data.get("title", [])
+                t = "".join([t.get("plain_text", "") for t in title_list])
+                if t:
+                    logger.info(f"Found DB title: '{t}'")
+                    return t
+    
+    logger.warning(f"Could not find title for object {object_id}")
+    
+    return None
+
+
+async def search_notion_globally_with_parent(access_token: str) -> Optional[dict]:
+    """
+    Search for databases and the Stats page, grouped by parent.
+    Returns: { 'parent_id': str, 'db_ids': { field_name: db_id } }
     """
     logger.info("Starting global Notion search (2-pass)...")
     headers = {
@@ -268,6 +311,35 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
     async with aiohttp.ClientSession() as session:
         url = "https://api.notion.com/v1/search"
         
+        # Pass 0: Search for ALL pages to find the potential Project Root
+        logger.info("Pass 0: Searching for all shared pages...")
+        payload_all_pages = {
+            "filter": {"value": "page", "property": "object"},
+            "page_size": 100
+        }
+        async with session.post(url, headers=headers, json=payload_all_pages) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                all_pages = data.get("results", [])
+                logger.info(f"Found {len(all_pages)} shared pages.")
+                for p in all_pages:
+                    p_id = p["id"]
+                    props = p.get("properties", {})
+                    p_title = ""
+                    for prop in props.values():
+                        if prop.get("type") == "title":
+                            title_list = prop.get("title", [])
+                            p_title = "".join([t.get("plain_text", "") for t in title_list])
+                            break
+                    logger.info(f"Shared Page: '{p_title}' (ID: {p_id})")
+                    
+                    # Heuristic: If this looks like our project root, store it if not matched root yet
+                    clean_p_title = p_title.lower()
+                    if "finance" in clean_p_title or "tracker" in clean_p_title:
+                        if "project_root_name" not in results_by_parent:
+                            results_by_parent["project_root_name"] = p_title
+                            results_by_parent["project_root_id"] = p_id
+
         # Pass 1: Search for Databases (filtered)
         logger.info("Pass 1: Searching for databases...")
         payload_db = {
@@ -342,12 +414,26 @@ async def search_notion_globally(access_token: str) -> Optional[dict[str, str]]:
     if not results_by_parent:
         return None
 
+    # Extract our heuristic project root info
+    project_root_name = results_by_parent.pop("project_root_name", None)
+    project_root_id = results_by_parent.pop("project_root_id", None)
+
+    if not results_by_parent:
+        # If we found no databases, but found a project root page, we can't do much DB-wise,
+        # but the caller might want to know the root. However, this function is for DBs.
+        return None
+
     # Pick the "best" parent: the one that has the most matching fields
     best_parent_id = max(results_by_parent, key=lambda p_id: len(results_by_parent[p_id]))
     result = results_by_parent[best_parent_id]
     
     logger.info(f"Selected parent '{best_parent_id}' with {len(result)} matching items as the best candidate.")
-    return result
+    return {
+        "parent_id": best_parent_id,
+        "db_ids": result,
+        "project_root_name": project_root_name,
+        "project_root_id": project_root_id
+    }
 
 
 async def process_oauth_callback(code: str, telegram_id: int) -> tuple[bool, dict]:
@@ -400,8 +486,37 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
 
     # Discover database IDs from template
     db_ids = {}
+    template_name = None
     if duplicated_template_id:
         logger.info(f"Duplicated template ID found: {duplicated_template_id} for user {telegram_id}. Starting discovery...")
+        
+        # Step 1: Also fetch the template page name to show to the user
+        try:
+            url = f"https://api.notion.com/v1/pages/{duplicated_template_id}"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Notion-Version": "2022-06-28",
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status == 200:
+                        page_data = await resp.json()
+                        properties = page_data.get("properties", {})
+                        # Find the title property (it has different names but usually 'title' or just the first property of type title)
+                        for prop in properties.values():
+                            if prop.get("type") == "title":
+                                title_list = prop.get("title", [])
+                                template_name = "".join([t.get("plain_text", "") for t in title_list])
+                                break
+                        
+                        if template_name:
+                            update_data["notion_template_name"] = template_name
+                            logger.info(f"Fetched template name: '{template_name}'")
+                    else:
+                        logger.warning(f"Failed to fetch template name: {await resp.text()}")
+        except Exception as e:
+            logger.error(f"Error fetching template name for {duplicated_template_id}: {e}")
+
         db_ids = await discover_database_ids(access_token, duplicated_template_id) or {}
     
     # Check if we are missing anything
@@ -409,26 +524,35 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
     missing_ids = [k for k in required_ids if k not in db_ids]
     
     # Fallback to global search if anything is missing
+    best_parent_id = None
     if missing_ids:
         logger.info(f"Missing {missing_ids} for user {telegram_id}. Falling back to global search...")
-        global_ids = await search_notion_globally(access_token)
-        if global_ids:
-            # We found a better candidate globally. 
-            # To ensure consistency, we don't just merge; we should ideally 
-            # re-run discovery from the common parent if possible.
-            # However, search_notion_globally already returns a consistent set 
-            # from the 'best' parent it found.
+        global_results = await search_notion_globally_with_parent(access_token)
+        if global_results:
+            best_parent_id = global_results.get("parent_id")
+            global_ids = global_results.get("db_ids")
+            project_root_name = global_results.get("project_root_name")
             
-            # If the global search found MORE than we have, or different ones, 
-            # let's trust its grouping.
-            if len(global_ids) > len(db_ids):
+            if global_ids and (not db_ids or len(global_ids) > len(db_ids)):
                 logger.info(f"Global search found a more complete project ({len(global_ids)} items). Switching to it.")
                 db_ids = global_ids
-            else:
-                # Merge only if it doesn't break consistency (heuristic: only if db_ids was empty)
-                for k, v in global_ids.items():
-                    if k not in db_ids:
-                        db_ids[k] = v
+                
+                # Priority 1: Heuristic project root name from Pass 0
+                if project_root_name:
+                    template_name = project_root_name
+                    update_data["notion_template_name"] = template_name
+                    logger.info(f"Using heuristic project root name: '{template_name}'")
+                
+                # Priority 2: Title of the best parent found
+                elif best_parent_id and best_parent_id != "root":
+                    logger.info(f"Attempting to fetch title for global parent ID: {best_parent_id}")
+                    new_template_name = await get_notion_object_title(best_parent_id, access_token)
+                    if new_template_name:
+                        template_name = new_template_name
+                        update_data["notion_template_name"] = template_name
+                        logger.info(f"Successfully updated template_name to: '{template_name}'")
+                    else:
+                        logger.warning(f"Could not determine title for global parent {best_parent_id}")
             logger.info(f"Global search results processed. Current found count: {len(db_ids)}")
 
     if db_ids:
@@ -445,14 +569,19 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
 
     # Store everything in the database
     await create_or_update_user(telegram_id=telegram_id, **update_data)
-    logger.info(f"OAuth background discovery completed for user {telegram_id} (workspace: {workspace_name}). HasDbs: {has_all_dbs}")
+    logger.info(f"OAuth background discovery completed for user {telegram_id} (workspace: {workspace_name}, template: {template_name}). HasDbs: {has_all_dbs}")
 
     # Notify user in Telegram
     try:
         if has_all_dbs:
             await bot.send_message(
                 chat_id=telegram_id,
-                text=i18n.get_text('msg_notion_connected_success', telegram_id),
+                text=i18n.get_text(
+                    'msg_notion_connected_success', 
+                    telegram_id, 
+                    workspace=workspace_name or "Notion",
+                    template=template_name or "Finance Tracker"
+                ),
                 reply_markup=await get_main_menu(telegram_id)
             )
         else:

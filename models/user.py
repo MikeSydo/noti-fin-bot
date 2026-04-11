@@ -17,6 +17,7 @@ class User(Base):
     notion_bot_id = Column(String(100), nullable=True)
     notion_workspace_id = Column(String(100), nullable=True)
     notion_workspace_name = Column(String(255), nullable=True)
+    notion_template_name = Column(String(255), nullable=True)
 
     # User's personal Notion database IDs (discovered from duplicated template)
     accounts_db_id = Column(String(100), nullable=True)
