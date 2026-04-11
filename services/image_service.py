@@ -1,6 +1,6 @@
 import io
 import logging
-from PIL import Image
+from PIL import Image, ImageOps, ImageEnhance
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,13 @@ def compress_image(file_bytes: bytes, max_dimension: int = 1600, quality: int = 
         old_size = len(file_bytes)
         # Load image from bytes
         img = Image.open(io.BytesIO(file_bytes))
+        
+        # Auto-rotate based on EXIF metadata
+        img = ImageOps.exif_transpose(img)
+        
+        # Enhance contrast (slightly) to help OCR
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.2) # 20% increase in contrast
         
         # Convert to RGB if it's RGBA or other (stripping alpha for JPEG)
         if img.mode != "RGB":
