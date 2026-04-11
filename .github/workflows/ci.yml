@@ -7,6 +7,41 @@ on:
     branches: [ master ]
 
 jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      db: ${{ steps.filter.outputs.db }}
+      services: ${{ steps.filter.outputs.services }}
+      handlers: ${{ steps.filter.outputs.handlers }}
+      global: ${{ steps.filter.outputs.global }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            db:
+              - 'models/**'
+              - 'db.py'
+              - 'alembic/**'
+              - 'tests/db/**'
+            services:
+              - 'services/**'
+              - 'tests/services/**'
+            handlers:
+              - 'app/**'
+              - 'bot.py'
+              - 'webapp.py'
+              - 'tests/handlers/**'
+            global:
+              - 'requirements.txt'
+              - 'config.py'
+              - 'main.py'
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+              - 'tests/conftest.py'
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -23,7 +58,13 @@ jobs:
         run: ruff check .
 
   test:
-    needs: lint
+    needs: [filter, lint]
+    # Run if global changed, or if any specific category changed
+    if: |
+      needs.filter.outputs.global == 'true' ||
+      needs.filter.outputs.db == 'true' ||
+      needs.filter.outputs.services == 'true' ||
+      needs.filter.outputs.handlers == 'true'
     runs-on: ubuntu-latest
     services:
       db:
@@ -64,7 +105,19 @@ jobs:
           AWS_S3_BUCKET_NAME: "test-bucket"
           AWS_ACCESS_KEY_ID: "dummy"
           AWS_SECRET_ACCESS_KEY: "dummy"
-        run: pytest tests/ -v
+        run: |
+          if [ "${{ needs.filter.outputs.global }}" == "true" ]; then
+            echo "Global changes detected. Running all tests..."
+            pytest tests/ -v
+          else
+            TEST_PATHS=""
+            if [ "${{ needs.filter.outputs.db }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/db/"; fi
+            if [ "${{ needs.filter.outputs.services }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/services/"; fi
+            if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/handlers/"; fi
+            
+            echo "Running selective tests: $TEST_PATHS"
+            pytest $TEST_PATHS -v
+          fi
 
   build-and-push:
     needs: test
