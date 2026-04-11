@@ -18,3 +18,4 @@ __pycache__/
 
 # Reports directory
 reports_temp/
+.ruff_cache
