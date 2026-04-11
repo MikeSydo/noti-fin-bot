@@ -59,18 +59,53 @@ async def format_receipt_report(user_id: int, parsed_data_dict: dict) -> str:
         report += i18n.get_text('rcp_report_items_header', user_id) + "\n"
         # Monospace table
         report += "```\n"
-        # Header: N | Name | Price | Cat
-        report += "N | Назва      | Ціна   | Кат.\n"
-        report += "--------------------------------\n"
+        # Widths
+        NW = 25  # Name Width
+        CW = 22  # Category Width
+        SW = 15   # Sum Width
+        
+        # Header and Separator
+        h_n = i18n.get_text('rcp_table_n', user_id)
+        h_nm = i18n.get_text('rcp_table_name', user_id)
+        h_sm = i18n.get_text('rcp_table_sum', user_id)
+        h_ct = i18n.get_text('rcp_table_category', user_id)
+        
+        # Center the labels within their fixed widths
+        header_line = f"{h_n:<2}| {h_nm:^{NW}} | {h_sm:^{SW}} | {h_ct:^{CW}}"
+        sep_line = "-" * len(header_line)
+        
+        report += f"{header_line}\n{sep_line}\n"
+        
         for i, item in enumerate(parsed_data.items, 1):
             alert = " ⚠️" if item.is_uncertain else ""
-            clean_name = item.name[:11] + ".." if len(item.name) > 11 else item.name
-            cat_short = (item.category_name[:6] + "..") if item.category_name and len(item.category_name) > 6 else (item.category_name or "-")
-            report += f"{i:<2}| {clean_name:<11}| {item.amount:>6.2f}{alert} | {cat_short}\n"
+            
+            # Truncation logic with dots
+            nm = item.name.strip()
+            if len(nm) > NW:
+                nm = nm[:NW-2] + ".."
+            
+            ct = item.category_name.strip() if item.category_name else "-"
+            if len(ct) > CW:
+                ct = ct[:CW-2] + ".."
+            
+            # Formatting
+            report += f"{i:<2}| {nm:^{NW}} | {item.amount:>{SW}.2f} | {ct:<{CW}}{alert}\n"
+        
+        # Add Total row
+        report += f"{sep_line}\n"
+        total_label = i18n.get_text('rcp_table_total', user_id)
+        
+        # Calculate total table width from header (excluding potential trailing spaces)
+        total_width = len(sep_line)
+        amount_str = f"{parsed_data.total_amount:.2f}"
+        
+        # Align: Total label (left) ... Amount (right) |
+        # Using total_width - 2 to account for the trailing " |" padding in rows
+        report += f"{total_label:<{total_width - len(amount_str) - 2}} {amount_str} |\n"
         report += "```"
         
         if math_mismatch:
-            report += f"\n\n*Sum of items ({items_sum:.2f}) != Total ({parsed_data.total_amount:.2f})*"
+            report += f"\n\n{i18n.get_text('rcp_math_mismatch', user_id, items_sum=items_sum, total_amount=parsed_data.total_amount)}"
 
     return report
 

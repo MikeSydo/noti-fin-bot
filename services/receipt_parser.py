@@ -57,7 +57,8 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
             
             IMPORTANT RULES:
             - If there are discounts or coupons, include them as separate items with NEGATIVE amount (e.g., name: "Discount", amount: -10.5).
-            - The sum of items (including discounts) should ideally match the total_amount.
+            - The sum of items (including discounts and taxes) MUST match the total_amount.
+            - If prices for items are listed without VAT/Taxes, either include Taxes in the price of each item OR add a separate item for "VAT/Tax" so the total sum is mathematically correct.
             - If the image is blurry, text is cut off, or you are making a guess about a specific field or item, set the corresponding "is_uncertain" or add it to "uncertain_fields".
             
             For the category_name, you MUST choose the best match from the following list of available categories:
