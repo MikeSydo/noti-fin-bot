@@ -62,12 +62,7 @@ jobs:
         run: ruff check .
 
   test:
-    needs: [filter, lint]
-    if: |
-      needs.filter.outputs.global == 'true' ||
-      needs.filter.outputs.db == 'true' ||
-      needs.filter.outputs.services == 'true' ||
-      needs.filter.outputs.handlers == 'true'
+    needs: lint
     runs-on: ubuntu-latest
     services:
       db:

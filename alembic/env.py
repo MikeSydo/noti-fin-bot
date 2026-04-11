@@ -23,7 +23,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import settings as app_settings  # noqa: E402
 from db import Base  # noqa: E402
-import models.user  # noqa: F401, E402
 
 # add your model's MetaData object here
 # for 'autogenerate' support

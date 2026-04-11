@@ -32,14 +32,8 @@ async def cmd_start(message: Message, state: FSMContext):
         user = await get_user(user_id)
         if user and user.is_notion_connected and user.has_databases:
             workspace_name = user.notion_workspace_name or "Notion"
-            template_name = user.notion_template_name or "Finance Tracker"
             await message.answer(
-                i18n.get_text(
-                    'msg_main_menu_connected', 
-                    user_id, 
-                    workspace=workspace_name,
-                    template=template_name
-                ),
+                i18n.get_text('msg_main_menu_connected', user_id, workspace=workspace_name),
                 reply_markup=await get_main_menu(user_id)
             )
         else:
@@ -69,12 +63,7 @@ async def cmd_connect(message: Message, state: FSMContext):
     user = await get_user(user_id)
     if user and user.is_notion_connected and user.has_databases:
         await message.answer(
-            i18n.get_text(
-                'msg_already_connected', 
-                user_id, 
-                workspace=user.notion_workspace_name or "Notion",
-                template=user.notion_template_name or "Finance Tracker"
-            ),
+            i18n.get_text('msg_already_connected', user_id, workspace=user.notion_workspace_name or "Notion"),
             reply_markup=await get_main_menu(user_id),
         )
         return
@@ -132,13 +121,7 @@ async def process_language_selection(message: Message):
     user = await get_user(user_id)
     if user and user.is_notion_connected and user.has_databases:
         await message.answer(
-            i18n.get_text(
-                'msg_main_menu_connected', 
-                user_id, 
-                lang_code=lang,
-                workspace=user.notion_workspace_name or "Notion",
-                template=user.notion_template_name or "Finance Tracker"
-            ),
+            i18n.get_text('msg_main_menu', user_id, lang_code=lang),
             reply_markup=await get_main_menu(user_id)
         )
     else:
