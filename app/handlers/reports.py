@@ -10,7 +10,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 @router.message(F.text.in_(i18n.get_all_translations('btn_analytics')))
-async def start_analytics(message: Message, state: FSMContext, user: User):
+async def start_report(message: Message, state: FSMContext, user: User):
     """
     Reworked Analytics: Instead of generating charts, 
     provide a direct link to the 'Stats' section in Notion.
