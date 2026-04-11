@@ -161,6 +161,27 @@ async def refresh_access_token(user) -> Optional[str]:
     return None
 
 
+async def get_page_title(access_token: str, page_id: str) -> Optional[str]:
+    """Fetch the title of a Notion page by ID."""
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Notion-Version": "2022-06-28",
+    }
+    url = f"https://api.notion.com/v1/pages/{page_id}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                properties = data.get("properties", {})
+                # For standard pages, title property is usually named "title"
+                title_prop = properties.get("title") or next(iter(properties.values())) if properties else None
+                if title_prop and title_prop.get("type") == "title":
+                    title_list = title_prop.get("title", [])
+                    return "".join([t.get("plain_text", "") for t in title_list])
+            return None
+
+
 async def discover_database_ids(access_token: str, duplicated_template_id: str) -> Optional[dict]:
     """
     Discover the database IDs from a duplicated Notion template page.
@@ -393,7 +414,14 @@ async def complete_oauth_discovery(token_response: dict, telegram_id: int):
         "notion_bot_id": bot_id,
         "notion_workspace_id": workspace_id,
         "notion_workspace_name": workspace_name,
+        "notion_template_name": "Finance Tracker",  # Default fallback
     }
+
+    # Fetch real template name if available
+    if duplicated_template_id:
+        template_name = await get_page_title(access_token, duplicated_template_id)
+        if template_name:
+            update_data["notion_template_name"] = template_name
 
     if refresh_token:
         update_data["notion_refresh_token_encrypted"] = encrypt_token(refresh_token)
