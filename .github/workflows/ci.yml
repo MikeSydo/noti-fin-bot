@@ -7,43 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  filter:
-    runs-on: ubuntu-latest
-    outputs:
-      db: ${{ steps.filter.outputs.db }}
-      services: ${{ steps.filter.outputs.services }}
-      services_files: ${{ steps.filter.outputs.services_files }}
-      handlers: ${{ steps.filter.outputs.handlers }}
-      global: ${{ steps.filter.outputs.global }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          list-files: shell
-          filters: |
-            db:
-              - 'models/**'
-              - 'db.py'
-              - 'alembic/**'
-              - 'tests/db/**'
-            services:
-              - 'services/**'
-              - 'tests/services/**'
-            handlers:
-              - 'app/**'
-              - 'bot.py'
-              - 'webapp.py'
-              - 'tests/handlers/**'
-            global:
-              - 'requirements.txt'
-              - 'config.py'
-              - 'main.py'
-              - 'Dockerfile'
-              - 'docker-compose.yml'
-              - '.github/workflows/ci.yml'
-              - 'tests/conftest.py'
-
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -60,12 +23,7 @@ jobs:
         run: ruff check .
 
   test:
-    needs: [filter, lint]
-    if: |
-      needs.filter.outputs.global == 'true' ||
-      needs.filter.outputs.db == 'true' ||
-      needs.filter.outputs.services == 'true' ||
-      needs.filter.outputs.handlers == 'true'
+    needs: lint
     runs-on: ubuntu-latest
     services:
       db:
@@ -106,77 +64,7 @@ jobs:
           AWS_S3_BUCKET_NAME: "test-bucket"
           AWS_ACCESS_KEY_ID: "dummy"
           AWS_SECRET_ACCESS_KEY: "dummy"
-        run: |
-          if [ "${{ needs.filter.outputs.global }}" == "true" ]; then
-            echo "Global changes detected. Running all tests..."
-            pytest tests/ -v
-          else
-            TEST_PATHS=""
-            
-            # DB - run full folder if changed
-            if [ "${{ needs.filter.outputs.db }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/db/"; fi
-            
-            # Handlers - Ultra-Granular 1-to-1 mapping
-            if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then
-              for file in ${{ needs.filter.outputs.handlers_files }}; do
-                if [[ $file == app/handlers/*.py ]]; then
-                  filename=$(basename "$file" .py)
-                  test_file="tests/handlers/test_$filename.py"
-                  if [ -f "$test_file" ]; then
-                    if [[ ! $TEST_PATHS =~ $test_file ]]; then
-                      TEST_PATHS="$TEST_PATHS $test_file"
-                    fi
-                  else
-                    if [[ ! $TEST_PATHS =~ "tests/handlers/" ]]; then
-                      echo "No specific test for $file, adding full handlers folder."
-                      TEST_PATHS="$TEST_PATHS tests/handlers/"
-                    fi
-                  fi
-                elif [[ $file == tests/handlers/test_*.py ]]; then
-                   if [[ ! $TEST_PATHS =~ $file ]]; then
-                    TEST_PATHS="$TEST_PATHS $file"
-                  fi
-                elif [[ $file == bot.py || $file == webapp.py ]]; then
-                  # Core files related to handlers
-                  if [[ ! $TEST_PATHS =~ "tests/handlers/" ]]; then
-                    TEST_PATHS="$TEST_PATHS tests/handlers/"
-                  fi
-                fi
-              done
-            fi
-            
-            # Services - Ultra-Granular 1-to-1 mapping
-            if [ "${{ needs.filter.outputs.services }}" == "true" ]; then
-              for file in ${{ needs.filter.outputs.services_files }}; do
-                if [[ $file == services/*.py ]]; then
-                  filename=$(basename "$file" .py)
-                  test_file="tests/services/test_$filename.py"
-                  if [ -f "$test_file" ]; then
-                    if [[ ! $TEST_PATHS =~ $test_file ]]; then
-                      TEST_PATHS="$TEST_PATHS $test_file"
-                    fi
-                  else
-                    # Fallback if specific test not found
-                    if [[ ! $TEST_PATHS =~ "tests/services/" ]]; then
-                      echo "No specific test for $file, adding full services folder."
-                      TEST_PATHS="$TEST_PATHS tests/services/"
-                    fi
-                  fi
-                elif [[ $file == tests/services/test_*.py ]]; then
-                  if [[ ! $TEST_PATHS =~ $file ]]; then
-                    TEST_PATHS="$TEST_PATHS $file"
-                  fi
-                fi
-              done
-            fi
-            
-            if [ -z "$TEST_PATHS" ]; then
-              echo "No relevant tests found for current changes."
-            else
-              echo "Running identified tests: $TEST_PATHS"
-              pytest $TEST_PATHS -v
-            fi
-          fi
+        run: pytest tests/ -v
 
   build-and-push:
     needs: test

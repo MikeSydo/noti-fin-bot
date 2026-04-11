@@ -8,7 +8,6 @@ from aiogram.filters import StateFilter
 from bot import bot
 from decimal import Decimal
 from services.s3_service import upload_receipt_to_s3
-from services.image_service import compress_image
 
 from services.i18n import i18n
 from services.notion_writer import NotionWriter
@@ -51,13 +50,8 @@ async def handle_receipt_image(message: Message, state: FSMContext, notion_write
         lang_code = i18n.get_user_lang(user_id) or "uk"
         bts = file_bytes.read()
         
-        # Determine extension and mime-type
+        # Determine mime-type for Gemini
         extension = file.file_path.split('.')[-1].lower() if '.' in file.file_path else "jpg"
-        
-        # Compress image before parsing and uploading
-        if extension != "pdf":
-            bts = compress_image(bts)
-        
         mime_type = "application/pdf" if extension == "pdf" else f"image/{extension}"
         if extension in ["jpg", "jpeg"]:
             mime_type = "image/jpeg"
