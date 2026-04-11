@@ -66,7 +66,12 @@ jobs:
         run: ruff check .
 
   test:
-    needs: lint
+    needs: [filter, lint]
+    if: |
+      needs.filter.outputs.global == 'true' ||
+      needs.filter.outputs.db == 'true' ||
+      needs.filter.outputs.services == 'true' ||
+      needs.filter.outputs.handlers == 'true'
     runs-on: ubuntu-latest
     services:
       db:
@@ -108,81 +113,16 @@ jobs:
           AWS_ACCESS_KEY_ID: "dummy"
           AWS_SECRET_ACCESS_KEY: "dummy"
         run: |
-          GLOBAL_CHANGED="${{ needs.filter.outputs.global }}"
-          if [ "$GLOBAL_CHANGED" == "true" ]; then
+          if [ "${{ needs.filter.outputs.global }}" == "true" ]; then
             echo "Global changes detected. Running all tests..."
             pytest tests/ -v
-            exit 0
-          fi
-
-          TEST_PATHS=""
-          
-          # Category: DB
-          if [ "${{ needs.filter.outputs.db }}" == "true" ]; then
-            echo "DB changes detected. Adding full tests/db/ suite."
-            TEST_PATHS="$TEST_PATHS tests/db/"
-          fi
-          
-          # Category: Handlers (1-to-1 or Full)
-          if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then
-            FILES="${{ needs.filter.outputs.handlers_files }}"
-            if [ -z "$FILES" ]; then
-              echo "Handlers changed but no file list provided. Adding full tests/handlers/."
-              TEST_PATHS="$TEST_PATHS tests/handlers/"
-            else
-              for file in $FILES; do
-                if [[ $file == app/handlers/*.py ]]; then
-                  filename=$(basename "$file" .py)
-                  test_file="tests/handlers/test_$filename.py"
-                  if [ -f "$test_file" ]; then
-                    echo "Mapped $file -> $test_file"
-                    [[ ! $TEST_PATHS =~ $test_file ]] && TEST_PATHS="$TEST_PATHS $test_file"
-                  else
-                    echo "No specific test for $file, adding full tests/handlers/."
-                    [[ ! $TEST_PATHS =~ "tests/handlers/" ]] && TEST_PATHS="$TEST_PATHS tests/handlers/"
-                  fi
-                elif [[ $file == tests/handlers/test_*.py ]]; then
-                  echo "Test file changed: $file"
-                  [[ ! $TEST_PATHS =~ $file ]] && TEST_PATHS="$TEST_PATHS $file"
-                elif [[ $file == bot.py || $file == webapp.py ]]; then
-                  echo "Core file $file changed, adding full tests/handlers/."
-                  [[ ! $TEST_PATHS =~ "tests/handlers/" ]] && TEST_PATHS="$TEST_PATHS tests/handlers/"
-                fi
-              done
-            fi
-          fi
-          
-          # Category: Services (1-to-1 or Full)
-          if [ "${{ needs.filter.outputs.services }}" == "true" ]; then
-            FILES="${{ needs.filter.outputs.services_files }}"
-            if [ -z "$FILES" ]; then
-              echo "Services changed but no file list provided. Adding full tests/services/."
-              TEST_PATHS="$TEST_PATHS tests/services/"
-            else
-              for file in $FILES; do
-                if [[ $file == services/*.py ]]; then
-                  filename=$(basename "$file" .py)
-                  test_file="tests/services/test_$filename.py"
-                  if [ -f "$test_file" ]; then
-                    echo "Mapped $file -> $test_file"
-                    [[ ! $TEST_PATHS =~ $test_file ]] && TEST_PATHS="$TEST_PATHS $test_file"
-                  else
-                    echo "No specific test for $file, adding full tests/services/."
-                    [[ ! $TEST_PATHS =~ "tests/services/" ]] && TEST_PATHS="$TEST_PATHS tests/services/"
-                  fi
-                elif [[ $file == tests/services/test_*.py ]]; then
-                  echo "Test file changed: $file"
-                  [[ ! $TEST_PATHS =~ $file ]] && TEST_PATHS="$TEST_PATHS $file"
-                fi
-              done
-            fi
-          fi
-          
-          if [ -z "$TEST_PATHS" ]; then
-            echo "No specific test paths identified. Fallback to all tests."
-            pytest tests/ -v
           else
-            echo "Final test suite: $TEST_PATHS"
+            TEST_PATHS=""
+            if [ "${{ needs.filter.outputs.db }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/db/"; fi
+            if [ "${{ needs.filter.outputs.services }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/services/"; fi
+            if [ "${{ needs.filter.outputs.handlers }}" == "true" ]; then TEST_PATHS="$TEST_PATHS tests/handlers/"; fi
+            
+            echo "Running selective tests: $TEST_PATHS"
             pytest $TEST_PATHS -v
           fi
 
