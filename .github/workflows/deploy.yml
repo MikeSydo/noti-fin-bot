@@ -26,7 +26,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           source: "."
-          target: "~/notion-finance-tracker"
+          target: "~/noti-fin-bot"
           rm: true
           timeout: 5m
           command_timeout: 10m
@@ -35,23 +35,24 @@ jobs:
         uses: appleboy/ssh-action@master
         env:
           APP_VERSION: ${{ github.ref_name }}
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         with:
 
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_VERSION,DOCKER_USERNAME,DOCKER_PASSWORD
+          envs: APP_VERSION,GHCR_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY
           script: |
-            cd ~/notion-finance-tracker
+            cd ~/noti-fin-bot
             
-            # Login to Docker Hub
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            # Login to GitHub Container Registry
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
             # Create .env file with all necessary variables
             cat <<EOF > .env
-            DOCKER_USERNAME=$DOCKER_USERNAME
+            GITHUB_REPOSITORY=$GITHUB_REPOSITORY
             # Telegram
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             

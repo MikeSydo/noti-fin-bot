@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # App Info
     VERSION: str = "0.2.1"
     ENV_NAME: str = ENV
-    CHANGELOG_URL: str = "https://github.com/MikeSydo/notion-finance-tracker/blob/master/CHANGELOG.md"
+    CHANGELOG_URL: str = "https://github.com/MikeSydo/noti-fin-bot/blob/master/CHANGELOG.md"
 
     # Server Settings
     PORT: int = 8080
