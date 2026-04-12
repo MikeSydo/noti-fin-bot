@@ -192,7 +192,7 @@ async def cmd_version(message: Message):
         inline_keyboard=[
             [InlineKeyboardButton(
                 text=i18n.get_text('btn_release_notes', user_id),
-                url=settings.RELEASE_NOTES_URL
+                url=settings.CHANGELOG_URL
             )]
         ]
     )
