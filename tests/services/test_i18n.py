@@ -49,11 +49,11 @@ def test_get_text_with_format_kwargs(i18n_instance):
     assert result == "Group expense saved!\n\n**Party**"
 
 
-def test_get_text_fallback_to_uk_when_lang_missing(i18n_instance):
-    """Test get_text falls back to 'uk' when user's lang code is not loaded."""
+def test_get_text_fallback_to_en_when_lang_missing(i18n_instance):
+    """Test get_text falls back to 'en' when user's lang code is not loaded."""
     i18n_instance.user_langs[400] = "fr"  # Not loaded
     result = i18n_instance.get_text("msg_main_menu", user_id=400)
-    assert result == "🏠 Головне меню"
+    assert result == "🏠 Main menu"
 
 
 def test_get_text_key_not_found_returns_key(i18n_instance):
