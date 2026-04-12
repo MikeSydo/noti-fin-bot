@@ -23,6 +23,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 class ReceiptProcessingState(StatesGroup):
+    """FSM states for the receipt scanning and confirmation flow."""
     waiting_for_confirmation = State()
     waiting_for_name = State()
     waiting_for_account = State()
@@ -60,9 +61,9 @@ async def format_receipt_report(user_id: int, parsed_data_dict: dict) -> str:
         # Monospace table
         report += "```\n"
         # Widths
-        NW = 25  # Name Width
-        CW = 22  # Category Width
-        SW = 15   # Sum Width
+        NAME_WIDTH = 25
+        CATEGORY_WIDTH = 22
+        AMOUNT_WIDTH = 15
         
         # Header and Separator
         h_n = i18n.get_text('rcp_table_n', user_id)
@@ -71,7 +72,7 @@ async def format_receipt_report(user_id: int, parsed_data_dict: dict) -> str:
         h_ct = i18n.get_text('rcp_table_category', user_id)
         
         # Center the labels within their fixed widths
-        header_line = f"{h_n:<2}| {h_nm:^{NW}} | {h_sm:^{SW}} | {h_ct:^{CW}}"
+        header_line = f"{h_n:<2}| {h_nm:^{NAME_WIDTH}} | {h_sm:^{AMOUNT_WIDTH}} | {h_ct:^{CATEGORY_WIDTH}}"
         sep_line = "-" * len(header_line)
         
         report += f"{header_line}\n{sep_line}\n"
@@ -81,15 +82,15 @@ async def format_receipt_report(user_id: int, parsed_data_dict: dict) -> str:
             
             # Truncation logic with dots
             nm = item.name.strip()
-            if len(nm) > NW:
-                nm = nm[:NW-2] + ".."
+            if len(nm) > NAME_WIDTH:
+                nm = nm[:NAME_WIDTH-2] + ".."
             
             ct = item.category_name.strip() if item.category_name else "-"
-            if len(ct) > CW:
-                ct = ct[:CW-2] + ".."
+            if len(ct) > CATEGORY_WIDTH:
+                ct = ct[:CATEGORY_WIDTH-2] + ".."
             
             # Formatting
-            report += f"{i:<2}| {nm:^{NW}} | {item.amount:>{SW}.2f} | {ct:<{CW}}{alert}\n"
+            report += f"{i:<2}| {nm:^{NAME_WIDTH}} | {item.amount:>{AMOUNT_WIDTH}.2f} | {ct:<{CATEGORY_WIDTH}}{alert}\n"
         
         # Add Total row
         report += f"{sep_line}\n"

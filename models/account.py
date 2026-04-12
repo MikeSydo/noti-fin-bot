@@ -5,7 +5,6 @@ from typing import Optional
 class Account(BaseModel):
     id: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
-    #decription names should be like attributes names in notion db
     name: str = Field(..., description='Account')
     initial_amount: Optional[Decimal] | None = Field(default=None, ge=0, description="Initial Amount")
     monthly_budget: Optional[Decimal] | None = Field(default=None, ge=0, description="Monthly Budget")

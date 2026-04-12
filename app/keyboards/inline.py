@@ -20,6 +20,7 @@ async def get_skip_attribute_keyboard(user_id: int) -> InlineKeyboardMarkup:
     return kb
 
 async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = False, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns an inline keyboard listing all accounts, with an optional skip button."""
     builder = InlineKeyboardBuilder()
     if include_skip:
         builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_account'))
@@ -38,6 +39,7 @@ async def get_accounts_keyboard(accounts: list[Account], include_skip: bool = Fa
     return builder.as_markup()
 
 async def get_today_date_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    """Returns a single-button keyboard that sets today's date."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=i18n.get_text('btn_today_date', user_id), callback_data='today_date')]
@@ -45,6 +47,7 @@ async def get_today_date_keyboard(user_id: int) -> InlineKeyboardMarkup:
     )
 
 async def get_categories_keyboard(categories: list[Category], include_skip: bool = False, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns an inline keyboard listing all categories, with an optional skip button."""
     builder = InlineKeyboardBuilder()
     if include_skip:
         builder.add(InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_category'))
@@ -62,6 +65,7 @@ async def get_categories_keyboard(categories: list[Category], include_skip: bool
     return builder.as_markup()
 
 async def get_expenses_keyboard(expenses: list[Expense], page: int, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns a paginated inline keyboard for selecting an expense to delete."""
     builder = InlineKeyboardBuilder()
     
     start_idx = page * 5
@@ -93,6 +97,7 @@ async def get_expenses_keyboard(expenses: list[Expense], page: int, user_id: int
     return builder.as_markup()
 
 async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns a paginated inline keyboard for selecting a group expense to delete."""
     builder = InlineKeyboardBuilder()
 
     start_idx = page * 5
@@ -121,6 +126,7 @@ async def get_group_expenses_keyboard(expenses: list[GroupExpense], page: int, u
     return builder.as_markup()
 
 async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_ids: set[str], page: int, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns a paginated multi-select keyboard for linking expenses to a group expense."""
     builder = InlineKeyboardBuilder()
 
     start_idx = page * 5
@@ -156,6 +162,7 @@ async def get_multi_select_expenses_keyboard(expenses: list[Expense], selected_i
     return builder.as_markup()
 
 async def get_years_inline_keyboard(years: list[int], prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns an inline keyboard for year selection."""
     builder = InlineKeyboardBuilder()
     for y in years:
         builder.add(InlineKeyboardButton(text=str(y), callback_data=f"{prefix}_{y}"))
@@ -163,6 +170,7 @@ async def get_years_inline_keyboard(years: list[int], prefix: str, user_id: int 
     return builder.as_markup()
 
 async def get_months_inline_keyboard(prefix: str, user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns an inline keyboard for month selection."""
     builder = InlineKeyboardBuilder()
     months = i18n.get_text('graph_months', user_id)
     for i, m in enumerate(months, start=1):
@@ -171,6 +179,7 @@ async def get_months_inline_keyboard(prefix: str, user_id: int = None) -> Inline
     return builder.as_markup()
 
 async def get_skip_receipt_keyboard(user_id: int = None) -> InlineKeyboardMarkup:
+    """Returns a single-button keyboard to skip receipt upload."""
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=i18n.get_text('btn_skip', user_id), callback_data='skip_receipt')]

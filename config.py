@@ -12,13 +12,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",
-        extra="ignore" # allow extra fields like the old ones if user hasn't removed them
+        extra="ignore"  # silently ignore unknown env vars
     )
 
     # App Info
-    VERSION: str = "1.1.2"
+    VERSION: str = "0.2.1"
     ENV_NAME: str = ENV
-    RELEASE_NOTES_URL: str
+    CHANGELOG_URL: str = "https://github.com/MikeSydo/notion-finance-tracker/blob/master/CHANGELOG.md"
 
     # Server Settings
     PORT: int = 8080

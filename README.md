@@ -113,6 +113,31 @@ Your `.env` file must contain the following keys:
 
 ---
 
+## 🌍 Environment Management
+
+The bot supports two environments: `prod` (default) and `dev`.
+
+- **`prod`**: Processes look for an `.env` file. Used for the live bot on DigitalOcean.
+- **`dev`**: Processes look for an `.env.dev` file. Used for local development and testing.
+
+### How to Switch
+Set the `ENV` environment variable before running the bot:
+
+**Windows (PowerShell):**
+```powershell
+$env:ENV="dev"; python main.py
+```
+
+**Linux/macOS:**
+```bash
+ENV=dev python main.py
+```
+
+> [!NOTE]
+> Currently, the project only supports `dev` and `prod` stages. We do not have a separate `staging` environment yet as it would require additional infrastructure (droplets).
+
+---
+
 ## ☁️ Infrastructure & Deployment
 
 This project is professionally hosted and managed using modern cloud infrastructure:

@@ -6,9 +6,9 @@ from services.receipt_parser import parse_receipt
 
 # Path to real mock receipt images - use absolute path to be more robust in CI
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MOCK_JPG_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_jpg.jpg")
-MOCK_PNG_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_png.png")
-MOCK_PDF_PATH = os.path.join(BASE_DIR, "mock_files/Receipt_pdf.pdf")
+MOCK_JPG_PATH = os.path.join(BASE_DIR, "tests/assets/Receipt_jpg.jpg")
+MOCK_PNG_PATH = os.path.join(BASE_DIR, "tests/assets/Receipt_png.png")
+MOCK_PDF_PATH = os.path.join(BASE_DIR, "tests/assets/Receipt_pdf.pdf")
 
 
 @pytest.fixture

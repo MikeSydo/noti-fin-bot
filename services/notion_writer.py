@@ -67,9 +67,7 @@ class NotionWriter:
         self.group_expenses_db_id = format_notion_id(group_expenses_db_id)
         self.categories_db_id = format_notion_id(categories_db_id)
 
-    # ──────────────────────────────────────────────
     # Accounts
-    # ──────────────────────────────────────────────
 
     async def add_account(self, account: Account) -> bool:
         """Add an account to the user's Notion DB."""
@@ -147,9 +145,7 @@ class NotionWriter:
             logger.error(f"Failed to delete page from Notion: {e}")
             return False
 
-    # ──────────────────────────────────────────────
     # Expenses
-    # ──────────────────────────────────────────────
 
     async def add_expense(self, expense: Expense) -> str | None:
         """Add expense to the user's Notion DB. Returns page ID or None."""
@@ -256,9 +252,7 @@ class NotionWriter:
             logger.error(f"Failed to retrieve expenses for date range: {e}")
             return []
 
-    # ──────────────────────────────────────────────
     # Categories
-    # ──────────────────────────────────────────────
 
     async def get_categories(self) -> list[Category]:
         """Get all categories from Notion DB."""
@@ -303,9 +297,7 @@ class NotionWriter:
             logger.error(f"Failed to get category from Notion: {e}")
             return None
 
-    # ──────────────────────────────────────────────
     # Group Expenses
-    # ──────────────────────────────────────────────
 
     async def add_group_expense(self, group_expense: GroupExpense) -> bool:
         """Add group expense to the user's Notion DB."""

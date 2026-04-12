@@ -110,6 +110,7 @@ async def cmd_disconnect(message: Message, state: FSMContext):
 
 @router.message(F.text.in_(i18n.get_all_translations('btn_change_language')), StateFilter(any_state))
 async def cmd_change_language(message: Message, state: FSMContext):
+    """Show language selection menu."""
     await state.clear()
     user_id = message.from_user.id
     await message.answer(
@@ -120,6 +121,7 @@ async def cmd_change_language(message: Message, state: FSMContext):
 
 @router.message(F.text.in_(["🇺🇦 Українська", "🇬🇧 English"]), StateFilter(any_state))
 async def process_language_selection(message: Message):
+    """Handle language button press and redirect to the main menu."""
     user_id = message.from_user.id
     if message.text == "🇬🇧 English":
         lang = "en"
@@ -178,6 +180,8 @@ async def cmd_cancel(message: Message, state: FSMContext):
         i18n.get_text('msg_action_cancelled', user_id),
         reply_markup=await get_main_menu(user_id),
     )
+
+
 @router.message(Command('version'), StateFilter(any_state))
 async def cmd_version(message: Message):
     """Answers for command /version."""
@@ -188,7 +192,7 @@ async def cmd_version(message: Message):
         inline_keyboard=[
             [InlineKeyboardButton(
                 text=i18n.get_text('btn_release_notes', user_id),
-                url=settings.RELEASE_NOTES_URL
+                url=settings.CHANGELOG_URL
             )]
         ]
     )

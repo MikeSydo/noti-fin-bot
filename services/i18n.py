@@ -8,7 +8,6 @@ from models.user import User
 
 logger = logging.getLogger(__name__)
 
-# USER_LANGS_FILE = "user_langs.json"
 LOCALES_DIR = "locales"
 
 class I18n:
@@ -55,15 +54,16 @@ class I18n:
         return self.user_langs.get(user_id)
 
     def get_text(self, key: str, user_id: int = None, lang_code: str = None, **kwargs) -> str:
-        code = lang_code or (self.get_user_lang(user_id) if user_id else "uk")
-        if code not in self.langs:
-            logger.warning(f"Language code '{code}' not found. Defaulting to 'uk'.")
-            code = "uk"
+        code = lang_code or (self.get_user_lang(user_id) if user_id else "en")
+        if not code or code not in self.langs:
+            if code is not None:
+                logger.warning(f"Language code '{code}' not found. Defaulting to 'en'.")
+            code = "en"
 
         text = self.langs.get(code, {}).get(key)
         if text is None:
             # Fallback
-            text = self.langs.get("uk", {}).get(key, key)
+            text = self.langs.get("en", {}).get(key, key)
 
         if isinstance(text, list):
             if kwargs:
