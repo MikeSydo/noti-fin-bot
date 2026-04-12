@@ -1,6 +1,6 @@
-# 🤝 Contributing to Notion Finance Tracker
+# 🤝 Contributing to NotiFinBot
 
-First off, thank you for considering contributing to the Notion Finance Tracker! Your help is highly appreciated.
+First off, thank you for considering contributing to the NotiFinBot! Your help is highly appreciated.
 
 Since this project is open-source and licensed under the **MIT License**, you're more than welcome to submit pull requests to fix bugs, add new features, or improve the documentation. By contributing, you agree that your work will be licensed under the same MIT terms.
 
@@ -10,8 +10,8 @@ Since this project is open-source and licensed under the **MIT License**, you're
 Fork the original repository to your own GitHub account, then clone it locally:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/notion-finance-tracker.git
-cd notion-finance-tracker
+git clone https://github.com/YOUR_USERNAME/noti-fin-bot.git
+cd noti-fin-bot
 ```
 
 ### 2. Set Up Your Environment

@@ -70,7 +70,7 @@ In this update, we focused on AI stability and data protection to make your fina
 ## [v0.0.0] - 2026-04-09
 
 ### Added
-- Initial launch of the Notion Finance Tracker Bot.
+- Initial launch of the NotiFinBot.
 - Basic receipt photo parsing and Notion database integration.
 - Support for multiple accounts and categories.
 - Secure OAuth 2.0 authentication flow.

@@ -1,6 +1,6 @@
-# 💸 Notion Finance Tracker Bot
+# 💸 NotiFinBot
 
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/MikeSydo/notion-finance-tracker/releases)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/MikeSydo/noti-fin-bot/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -26,8 +26,8 @@ The easiest way to get the bot running is using Docker.
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/MikeSydo/notion-finance-tracker.git
-    cd notion-finance-tracker
+    git clone https://github.com/MikeSydo/noti-fin-bot.git
+    cd noti-fin-bot
     ```
 
 2.  **Configure environment variables**:
@@ -144,7 +144,7 @@ This project is professionally hosted and managed using modern cloud infrastruct
 
 -   **Hosting**: The production environment is deployed on **DigitalOcean** (Linux Droplets) for optimal performance and uptime.
 -   **CI/CD Pipeline**: Automated deployment via **GitHub Actions**. Every update to the `master` branch triggers high-speed testing, linting, and a new container build.
--   **Containerization**: High-reliability images are stored in **Docker Hub**, ensuring identical environments from development to production.
+-   **Containerization**: High-reliability images are stored in **GitHub Container Registry (GHCR)**, ensuring identical environments from development to production.
 -   **Reverse Proxy**: [Caddy](https://caddyserver.com/) handles all traffic with automatic HTTPS (Let's Encrypt), providing secure encryption out of the box.
 
 ---

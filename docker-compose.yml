@@ -1,25 +1,25 @@
 services:
   db:
     image: postgres:15-alpine
-    container_name: notion_finance_db
+    container_name: noti_fin_db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-notion_finance}
+      POSTGRES_DB: ${DB_NAME:-noti_fin}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   app:
-    image: ${DOCKER_USERNAME}/notion-finance-bot:latest
-    container_name: notion_finance_bot
+    image: ghcr.io/${GITHUB_REPOSITORY}:latest
+    container_name: noti_fin_bot
     restart: always
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-notion_finance}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-noti_fin}
     depends_on:
       - db
     ports:
@@ -28,7 +28,7 @@ services:
 
   caddy:
     image: caddy:latest
-    container_name: notion_finance_proxy
+    container_name: noti_fin_proxy
     restart: always
     env_file:
       - .env
