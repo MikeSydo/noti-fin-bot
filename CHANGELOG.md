@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.1] - 2026-04-13
+
+This release focuses on localization polish, codebase standardization, and test structure improvements for the upcoming public repository launch.
+
+### Added
+- **🌐 Localized Menus**: Telegram bot command menus are now fully localized and respond automatically to the user's Telegram client language settings (English/Ukrainian).
+
+### Changed
+- **⚙️ Version Control**: Centralized versioning (`VERSION`) and changelog routing (`CHANGELOG_URL`) into `config.py` as the single source of truth, removing them from `.env` files.
+- **📁 Test Architecture**: Cleaned up the repository root by relocating mock files to `tests/assets/`, aligning with open-source testing best practices.
+
+### Fixed
+- **🐛 Validation Error**: Fixed a bug in `main.py` where missing command descriptions caused Pydantic validation errors on launch.
+- **🗣️ Language Fallback**: Resolved annoying warning logs by properly defaulting to English (`en`) when a user's language code is `None`.
+
+---
+
 ## [v0.2.0] - 2026-04-12
 
 The core focus of this release is a complete overhaul of the Notion connection logic, making the bot significantly smarter and more reliable during the onboarding process.

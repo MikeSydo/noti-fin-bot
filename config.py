@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # App Info
-    VERSION: str = "0.2.0"
+    VERSION: str = "0.2.1"
     ENV_NAME: str = ENV
     CHANGELOG_URL: str = "https://github.com/MikeSydo/notion-finance-tracker/blob/master/CHANGELOG.md"
 
