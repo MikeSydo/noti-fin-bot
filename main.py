@@ -17,16 +17,29 @@ dp = Dispatcher()
 
 
 async def set_bot_commands():
-    """Register bot commands visible in the Telegram menu."""
-    commands = [
-        BotCommand(command="start"),
-        BotCommand(command="connect"),
-        BotCommand(command="disconnect"),
-        BotCommand(command="help"),
-        BotCommand(command="cancel"),
-        BotCommand(command="version"),
+    """Register bot commands visible in the Telegram menu for all supported languages."""
+    # Define default commands (used if user language is not supported)
+    default_commands = [
+        BotCommand(command="start", description=i18n.get_text('cmd_start_desc', lang_code='en')),
+        BotCommand(command="connect", description=i18n.get_text('cmd_connect_desc', lang_code='en')),
+        BotCommand(command="disconnect", description=i18n.get_text('cmd_disconnect_desc', lang_code='en')),
+        BotCommand(command="help", description=i18n.get_text('cmd_help_desc', lang_code='en')),
+        BotCommand(command="cancel", description=i18n.get_text('cmd_cancel_desc', lang_code='en')),
+        BotCommand(command="version", description=i18n.get_text('cmd_version_desc', lang_code='en')),
     ]
-    await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
+    await bot.set_my_commands(default_commands, scope=BotCommandScopeDefault())
+
+    # Register localized commands for each supported language
+    for lang in i18n.langs.keys():
+        localized_commands = [
+            BotCommand(command="start", description=i18n.get_text('cmd_start_desc', lang_code=lang)),
+            BotCommand(command="connect", description=i18n.get_text('cmd_connect_desc', lang_code=lang)),
+            BotCommand(command="disconnect", description=i18n.get_text('cmd_disconnect_desc', lang_code=lang)),
+            BotCommand(command="help", description=i18n.get_text('cmd_help_desc', lang_code=lang)),
+            BotCommand(command="cancel", description=i18n.get_text('cmd_cancel_desc', lang_code=lang)),
+            BotCommand(command="version", description=i18n.get_text('cmd_version_desc', lang_code=lang)),
+        ]
+        await bot.set_my_commands(localized_commands, scope=BotCommandScopeDefault(), language_code=lang)
 
 
 async def start_web_server():

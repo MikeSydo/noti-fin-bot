@@ -1,5 +1,11 @@
 {
   "msg_version": "🚀 *Версія:* {version}\nДетальніше про оновлення:",
+  "cmd_start_desc": "🏠 Головне меню",
+  "cmd_connect_desc": "🔗 Підключити Notion",
+  "cmd_disconnect_desc": "🔌 Відключити Notion",
+  "cmd_help_desc": "ℹ️ Довідка",
+  "cmd_cancel_desc": "❌ Скасувати дію",
+  "cmd_version_desc": "🚀 Версія та зміни",
   "btn_release_notes": "📝 Історія оновлень",
   "btn_add_account": "💳 Додати акаунт",
   "btn_del_account": "🗑️ Видалити акаунт",

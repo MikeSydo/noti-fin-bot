@@ -1,5 +1,11 @@
 {
   "msg_version": "🚀 *Version:* {version}\nRead the release notes here:",
+  "cmd_start_desc": "🏠 Main menu",
+  "cmd_connect_desc": "🔗 Connect Notion",
+  "cmd_disconnect_desc": "🔌 Disconnect Notion",
+  "cmd_help_desc": "ℹ️ Help",
+  "cmd_cancel_desc": "❌ Cancel current action",
+  "cmd_version_desc": "🚀 Version and changes",
   "btn_release_notes": "📝 Release Notes",
   "btn_add_account": "💳 Add account",
   "btn_del_account": "🗑️ Delete account",
