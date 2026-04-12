@@ -8,7 +8,6 @@ from .account import Account
 class GroupExpense(BaseModel):
     id: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
-    #decription names should be like attributes names in notion db
     name: str = Field(..., description='Group Expense')
     amount: Decimal = Field(ge=0, description="Amount")
     date: datetime = Field(..., description="Date")
@@ -41,7 +40,6 @@ class GroupExpense(BaseModel):
             }
 
         if self.expenses_relations:
-            # Assumes the relation property in Notion is named "Expenses". Adjust if it's named differently.
             properties["Expenses"] = {"relation": [{"id": e_id} for e_id in self.expenses_relations]}
 
         return properties

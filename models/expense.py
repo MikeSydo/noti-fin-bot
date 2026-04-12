@@ -8,7 +8,6 @@ from .account import Account
 class Expense(BaseModel):
     id: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
-    #decription names should be like attributes names in notion db
     name: str = Field(..., description='Expense')
     amount: Decimal = Field(ge=0, description="Amount")
     date: datetime = Field(..., description="Date")

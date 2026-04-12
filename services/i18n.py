@@ -8,7 +8,6 @@ from models.user import User
 
 logger = logging.getLogger(__name__)
 
-# USER_LANGS_FILE = "user_langs.json"
 LOCALES_DIR = "locales"
 
 class I18n:

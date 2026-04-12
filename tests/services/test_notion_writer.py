@@ -1,11 +1,8 @@
 import pytest
-import sys
-import os
 from unittest.mock import AsyncMock, patch
 from decimal import Decimal
 from datetime import datetime
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.account import Account
 from models.expense import Expense
@@ -556,9 +553,7 @@ async def test_get_expenses_by_date_range_failure(mock_writer):
     mock_client.request.assert_called_once()
 
 
-# ─────────────────────────────────────────────
 # Group Expenses – find / get / delete
-# ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_find_group_expenses_success(mock_writer, mock_group_expenses_response):
@@ -654,9 +649,7 @@ async def test_get_group_expenses_by_ids_alias(mock_writer, mock_group_expenses_
     assert result[0].id == "uuid_grexpense_1"
 
 
-# ─────────────────────────────────────────────
 # Expenses – get_all, get_recent, get_list
-# ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_get_all_expenses_success(mock_writer, mock_expenses_response):
@@ -715,9 +708,7 @@ async def test_get_expenses_list_delegates_to_recent(mock_writer, mock_expenses_
     assert call_kwargs["body"]["page_size"] == 50
 
 
-# ─────────────────────────────────────────────
 # Categories – get_category by id
-# ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_get_category_success(mock_writer, mock_categories_response):
@@ -751,9 +742,7 @@ async def test_get_category_failure(mock_writer):
     assert category is None
 
 
-# ─────────────────────────────────────────────
 # Cascade delete: group expense + its expenses
-# ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_delete_group_expense_cascades_related_expenses(mock_writer, mock_group_expenses_response):

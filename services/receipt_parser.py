@@ -9,6 +9,8 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+RETRY_DELAY_SECONDS = 2
+
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 class ParsedItem(BaseModel):
@@ -34,7 +36,7 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
     Includes retry logic for 503/504 service errors.
     """
     max_retries = 3
-    retry_delay = 2 # seconds
+    retry_delay = RETRY_DELAY_SECONDS
 
     for attempt in range(max_retries):
         try:
