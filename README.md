@@ -1,7 +1,8 @@
 # 💸 Notion Finance Tracker Bot
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/MikeSydo/notion-finance-tracker/releases)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](#license)
+[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/MikeSydo/notion-finance-tracker/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 A powerful Telegram bot designed to seamlessly track your personal and group finances directly in **Notion**. Featuring AI-powered receipt parsing, automatic database discovery, and multi-language support.
 
@@ -112,8 +113,27 @@ Your `.env` file must contain the following keys:
 
 ---
 
+## ☁️ Infrastructure & Deployment
+
+This project is professionally hosted and managed using modern cloud infrastructure:
+
+-   **Hosting**: The production environment is deployed on **DigitalOcean** (Linux Droplets) for optimal performance and uptime.
+-   **CI/CD Pipeline**: Automated deployment via **GitHub Actions**. Every update to the `master` branch triggers high-speed testing, linting, and a new container build.
+-   **Containerization**: High-reliability images are stored in **Docker Hub**, ensuring identical environments from development to production.
+-   **Reverse Proxy**: [Caddy](https://caddyserver.com/) handles all traffic with automatic HTTPS (Let's Encrypt), providing secure encryption out of the box.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the community! If you'd like to help improve this project, please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to fork the repository, set up your development environment, and submit a pull request.
+
+---
+
 ## 📄 License
 
-Copyright (c) 2026 Mykhailo Sydoruk (MikeSydo). All Rights Reserved.
+This project is open-source and licensed under the **MIT License**.
 
-This software and associated documentation files are proprietary. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited.
+You are free to use, modify, and distribute this software for any purpose, including commercial use, provided that the original copyright notice and license are included.
+
+For more details, see the [LICENSE](LICENSE) file.

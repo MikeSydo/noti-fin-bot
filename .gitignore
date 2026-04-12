@@ -9,8 +9,12 @@ __pycache__/
 
 # IDE
 .idea/
+.vscode/
 
-.agents
+# For antigravity
+# Use your own skills that can help you
+.agents/
+skills-lock.json
 
 # SSL certificates (if any)
 *.pem
