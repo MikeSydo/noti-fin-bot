@@ -31,13 +31,17 @@ jobs:
           timeout: 5m
           command_timeout: 10m
 
+      - name: Lowercase repo name
+        run: |
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Executing remote ssh commands to deploy
         uses: appleboy/ssh-action@master
         env:
           APP_VERSION: ${{ github.ref_name }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY: ${{ env.REPO_LOWER }}
         with:
 
           host: ${{ secrets.HOST }}
