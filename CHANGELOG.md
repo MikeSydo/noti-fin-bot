@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.1] - 2026-04-13
+
+### Fixed
+- **🏷️ Docker Tagging**: Fixed `invalid reference format` error during deployment by ensuring repository names are consistently lowercased across all workflows.
+- **🛠️ Infrastructure Fix**: Transitioned to a custom `DOCKER_IMAGE_NAME` variable to avoid conflicts with default internal GitHub variables.
+
+---
+
 ## [v0.3.0] - 2026-04-13
 
 This major infrastructure release marks the transition to the **NotiFinBot** brand and a fully integrated GitHub-native ecosystem.
@@ -17,9 +25,6 @@ This major infrastructure release marks the transition to the **NotiFinBot** bra
 - **✨ Rebranding**: Project officially renamed to **NotiFinBot**. Container names, database references, and documentation updated to reflect the new identity.
 - **📦 Registry Migration**: Fully migrated from Docker Hub to **GitHub Container Registry (GHCR)**. Switched to `GITHUB_TOKEN` for more secure, integrated build authentication.
 - **🛠️ Infrastructure Modernization**: Updated all GitHub Actions to their latest versions and optimized CI logic for faster feedback loops.
- 
-### Fixed
-- **🏷️ Docker Tagging**: Ensured repository names are consistently lowercased during CI builds to prevent tag mismatch errors.
  
 ---
 
