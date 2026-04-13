@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.3] - 2026-04-13
+
+### Changed
+- **🛡️ Security Hardening**: Migrated all sensitive credentials from hardcoded strings in GitHub workflows to **GitHub Secrets** and **Variables**. Resolved multiple "GitGuardian" and "Secret Scanning" incidents.
+- **🚀 CI/CD Optimization**: Fixed deployment workflow errors (`invalid proto`) by aligning the `appleboy/ssh-action` configuration with the new secret management structure.
+- **📄 Environment Template**: Added `.env.example` to provide a secure and clear template for local environment setup.
+
+---
+
 ## [v0.3.2] - 2026-04-13
 
 ### Fixed
