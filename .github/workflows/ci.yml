@@ -107,12 +107,12 @@ jobs:
           FERNET_KEY: ${{ secrets.FERNET_KEY_DEV }}
           NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID_DEV }}
           NOTION_CLIENT_SECRET: ${{ secrets.NOTION_CLIENT_SECRET_DEV }}
-          NOTION_REDIRECT_URI: ${{ vars.NOTION_REDIRECT_URI_DEV }}
-          RELEASE_NOTES_URL: ${{ vars.RELEASE_NOTES_URL_DEV }}
+          NOTION_REDIRECT_URI: ${{ vars.NOTION_REDIRECT_URI }}
+          RELEASE_NOTES_URL: ${{ vars.RELEASE_NOTES_URL }}
           AWS_REGION: ${{ vars.AWS_REGION_DEV }}
           AWS_S3_BUCKET_NAME: ${{ vars.AWS_S3_BUCKET_NAME_DEV }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           PYTHONPATH: .
         run: |
           if [ "${{ needs.filter.outputs.global }}" == "true" ]; then

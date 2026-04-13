@@ -75,7 +75,7 @@ jobs:
             # Notion OAuth
             NOTION_CLIENT_ID=${{ secrets.NOTION_CLIENT_ID }}
             NOTION_CLIENT_SECRET=${{ secrets.NOTION_CLIENT_SECRET }}
-            NOTION_REDIRECT_URI=${{ secrets.NOTION_REDIRECT_URI }}
+            NOTION_REDIRECT_URI=${{ vars.NOTION_REDIRECT_URI }}
             
             # AWS S3
             AWS_REGION=${{ secrets.AWS_REGION }}
@@ -84,13 +84,13 @@ jobs:
             AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             
             # Caddy / Domain
-            DOMAIN_NAME=${{ secrets.DOMAIN_NAME }}
+            DOMAIN_NAME=${{ vars.DOMAIN_NAME }}
             
             # Server & Environment
-            PORT=${{ secrets.PORT }}
+            PORT=${{ vars.PORT }}
             ENV=prod
             VERSION=$APP_VERSION
-            RELEASE_NOTES_URL=${{ secrets.RELEASE_NOTES_URL }}
+            RELEASE_NOTES_URL=${{ vars.RELEASE_NOTES_URL }}
             EOF
             
             # Pull new image and restart services
