@@ -1,6 +1,6 @@
 # 💸 NotiFinBot
 
-[![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/MikeSydo/noti-fin-bot/releases)
+[![Version](https://img.shields.io/badge/version-0.3.2-blue.svg)](https://github.com/MikeSydo/noti-fin-bot/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 

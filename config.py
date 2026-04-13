@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     )
 
     # App Info
-    VERSION: str = "0.3.1"
+    VERSION: str = "0.3.2"
     ENV_NAME: str = ENV
     CHANGELOG_URL: str = "https://github.com/MikeSydo/noti-fin-bot/blob/master/CHANGELOG.md"
 

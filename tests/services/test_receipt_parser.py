@@ -71,6 +71,7 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
     assert result.store_name == "METRO"
     mock_genai_client.aio.models.generate_content.assert_called_once()
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
+    assert kwargs["model"] == "gemini-3.1-flash-lite"
     assert kwargs["contents"][1].inline_data.mime_type == "image/jpeg"
 
 
