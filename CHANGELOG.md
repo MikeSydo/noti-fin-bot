@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] - 2026-04-13
+
+This major infrastructure release marks the transition to the **NotiFinBot** brand and a fully integrated GitHub-native ecosystem.
+
+### Added
+- **🛡️ Security Policy**: Added `SECURITY.md` to establish a clear process for responsible vulnerability disclosure.
+- **🤖 Dependabot Integration**: Enabled automated security and dependency monitoring for Python packages and GitHub Actions.
+ 
+### Changed
+- **✨ Rebranding**: Project officially renamed to **NotiFinBot**. Container names, database references, and documentation updated to reflect the new identity.
+- **📦 Registry Migration**: Fully migrated from Docker Hub to **GitHub Container Registry (GHCR)**. Switched to `GITHUB_TOKEN` for more secure, integrated build authentication.
+- **🛠️ Infrastructure Modernization**: Updated all GitHub Actions to their latest versions and optimized CI logic for faster feedback loops.
+ 
+### Fixed
+- **🏷️ Docker Tagging**: Ensured repository names are consistently lowercased during CI builds to prevent tag mismatch errors.
+ 
+---
+
 ## [v0.2.1] - 2026-04-13
 
 This release focuses on localization polish, codebase standardization, and test structure improvements for the upcoming public repository launch.
