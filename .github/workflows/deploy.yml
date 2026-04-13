@@ -20,7 +20,7 @@ jobs:
         run: rm -rf .venv .git __pycache__ .pytest_cache tests README.md README.dev.md .github
 
       - name: Copy files to droplets via SCP
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
