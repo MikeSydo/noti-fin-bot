@@ -77,7 +77,9 @@ async def format_receipt_report(user_id: int, parsed_data_dict: dict) -> str:
         
         report += f"{header_line}\n{sep_line}\n"
         
-        for i, item in enumerate(parsed_data.items, 1):
+        display_items = [it for it in parsed_data.items if getattr(it, 'item_type', 'product') == 'product']
+        
+        for i, item in enumerate(display_items, 1):
             alert = " ⚠️" if item.is_uncertain else ""
             
             # Truncation logic with dots

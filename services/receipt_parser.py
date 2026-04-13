@@ -18,6 +18,7 @@ class ParsedItem(BaseModel):
     amount: float = Field(description="Price/Amount of the item")
     category_name: Optional[str] = Field(description="Best fitting category name from the provided list, or None")
     is_uncertain: bool = Field(description="Set to true if text is blurry, price is unclear, or you are guessing.")
+    item_type: str = Field(description="Type of the item: 'product', 'discount', or 'tax'.")
 
 class ParsedReceipt(BaseModel):
     is_receipt: bool = Field(description="Set to true ONLY if the image is a receipt. Set to false if it's a person, landscape, or anything else.")
@@ -58,7 +59,9 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
             - A list of uncertain field names (uncertain_fields).
             
             IMPORTANT RULES:
-            - If there are discounts or coupons, include them as separate items with NEGATIVE amount (e.g., name: "Discount", amount: -10.5).
+            - If there are discounts or coupons, include them as separate items with NEGATIVE amount (e.g., name: "Discount", amount: -10.5) and set item_type to "discount".
+            - Include Taxes/VAT (ПДВ) as separate items with item_type set to "tax".
+            - For all actual products or services, set item_type to "product".
             - The sum of items (including discounts and taxes) MUST match the total_amount.
             - If prices for items are listed without VAT/Taxes, either include Taxes in the price of each item OR add a separate item for "VAT/Tax" so the total sum is mathematically correct.
             - If the image is blurry, text is cut off, or you are making a guess about a specific field or item, set the corresponding "is_uncertain" or add it to "uncertain_fields".
@@ -72,7 +75,7 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
             file_part = types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
 
             response = await client.aio.models.generate_content(
-                model="gemini-3.1-flash-lite",
+                model="gemini-3.1-flash-lite-preview",
                 contents=[prompt, file_part],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",

@@ -55,7 +55,7 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
         "total_amount": 506.06,
         "date": "28-03-2026",
         "items": [
-            {"name": "LOVITA ПЕЧ ФУНДУК 127Г", "amount": 64.74, "category_name": "Продукти", "is_uncertain": False},
+            {"name": "LOVITA ПЕЧ ФУНДУК 127Г", "amount": 64.74, "category_name": "Продукти", "is_uncertain": False, "item_type": "product"},
         ],
         "confidence_score": 100,
         "currency_hint": "UAH",
@@ -71,7 +71,7 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
     assert result.store_name == "METRO"
     mock_genai_client.aio.models.generate_content.assert_called_once()
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
-    assert kwargs["model"] == "gemini-3.1-flash-lite"
+    assert kwargs["model"] == "gemini-3.1-flash-lite-preview"
     assert kwargs["contents"][1].inline_data.mime_type == "image/jpeg"
 
 
