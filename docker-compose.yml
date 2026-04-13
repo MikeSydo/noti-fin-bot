@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY}:latest
+    image: ghcr.io/${DOCKER_IMAGE_NAME}:latest
     container_name: noti_fin_bot
     restart: always
     env_file:

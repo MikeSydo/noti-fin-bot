@@ -41,13 +41,13 @@ jobs:
           APP_VERSION: ${{ github.ref_name }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REPOSITORY: ${{ env.REPO_LOWER }}
+          DOCKER_IMAGE_NAME: ${{ env.REPO_LOWER }}
         with:
 
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          envs: APP_VERSION,GHCR_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY
+          envs: APP_VERSION,GHCR_TOKEN,GITHUB_ACTOR,DOCKER_IMAGE_NAME
           script: |
             cd ~/noti-fin-bot
             
@@ -56,7 +56,7 @@ jobs:
 
             # Create .env file with all necessary variables
             cat <<EOF > .env
-            GITHUB_REPOSITORY=$GITHUB_REPOSITORY
+            DOCKER_IMAGE_NAME=$DOCKER_IMAGE_NAME
             # Telegram
             TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
             

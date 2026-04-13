@@ -151,7 +151,7 @@ jobs:
 
       - name: Lowercase repo name
         run: |
-          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -159,7 +159,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ env.REPO_LOWER }}:latest
-            ghcr.io/${{ env.REPO_LOWER }}:${{ github.run_number }}
+            ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:latest
+            ghcr.io/${{ env.DOCKER_IMAGE_NAME }}:${{ github.run_number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
