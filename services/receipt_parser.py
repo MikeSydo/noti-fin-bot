@@ -81,6 +81,7 @@ async def parse_receipt(file_bytes: bytes, categories: List[str], lang_code: str
                     response_mime_type="application/json",
                     response_schema=ParsedReceipt,
                     temperature=0.1,
+                    http_options=types.HttpOptions(timeout=60000),
                 )
             )
 

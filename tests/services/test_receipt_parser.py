@@ -73,6 +73,7 @@ async def test_parse_receipt_jpg_success(mock_genai_client, mock_jpg_bytes):
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
     assert kwargs["model"] == "gemini-2.5-flash"
     assert kwargs["contents"][1].inline_data.mime_type == "image/jpeg"
+    assert kwargs["config"].http_options.timeout == 60000
 
 
 @pytest.mark.asyncio
@@ -98,6 +99,7 @@ async def test_parse_receipt_png_success(mock_genai_client, mock_png_bytes):
     assert result.is_receipt is True
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
     assert kwargs["contents"][1].inline_data.mime_type == "image/png"
+    assert kwargs["config"].http_options.timeout == 60000
 
 
 @pytest.mark.asyncio
@@ -123,6 +125,7 @@ async def test_parse_receipt_pdf_success(mock_genai_client, mock_pdf_bytes):
     assert result.is_receipt is True
     _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
     assert kwargs["contents"][1].inline_data.mime_type == "application/pdf"
+    assert kwargs["config"].http_options.timeout == 60000
 
 
 @pytest.mark.asyncio
@@ -157,6 +160,8 @@ async def test_parse_receipt_retry_logic(mock_genai_client):
 
     assert result is not None
     assert mock_genai_client.aio.models.generate_content.call_count == 3
+    _args, kwargs = mock_genai_client.aio.models.generate_content.call_args
+    assert kwargs["config"].http_options.timeout == 60000
 
 
 @pytest.mark.asyncio
