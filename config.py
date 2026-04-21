@@ -24,10 +24,6 @@ class Settings(BaseSettings):
     PORT: int = 8080
     DOMAIN_NAME: str = "localhost"
 
-    # Webhook Settings
-    WEBHOOK_URL: str | None = None
-    WEBHOOK_PATH: str = "/webhook"
-
     # Telegram
     TELEGRAM_BOT_TOKEN: str
 
