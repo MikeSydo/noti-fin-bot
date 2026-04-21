@@ -4,6 +4,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
+> [!CAUTION]
+> **PROJECT HOSTING SUSPENSION: APRIL 30**
+> The public version of this bot will be suspended on **April 30, 2026**, to save resources. You can still host it yourself or run it locally by following the **Quick Start** guide below.
+
 A powerful Telegram bot designed to seamlessly track your personal and group finances directly in **Notion**. Featuring AI-powered receipt parsing, automatic database discovery, and multi-language support.
 
 ---
