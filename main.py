@@ -12,6 +12,8 @@ from webapp import setup_webapp
 from services.i18n import i18n
 from app.handlers import manual, receipt, accounts, expenses, group_expenses, reports
 from app.middleware.auth import AuthMiddleware
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiogram import Bot
 
 dp = Dispatcher()
 
@@ -41,25 +43,30 @@ async def set_bot_commands():
         ]
         await bot.set_my_commands(localized_commands, scope=BotCommandScopeDefault(), language_code=lang)
 
+async def on_startup(bot: Bot):
+    """Run layout initialization for the bot."""
+    await init_db()
+    await i18n.load_user_langs_from_db()
+    await set_bot_commands()
+    
+    if settings.WEBHOOK_URL:
+        webhook_url = f"{settings.WEBHOOK_URL}{settings.WEBHOOK_PATH}"
+        await bot.set_webhook(webhook_url)
+    logging.info(f"Bot startup completed. Environment: {settings.ENV_NAME}, Version: {settings.VERSION}")
 
-async def start_web_server():
-    """Start an internal web server for OAuth callbacks and health checks."""
-    app = setup_webapp()
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', settings.PORT)
-    await site.start()
-    logging.info(f"Web server running on port {settings.PORT}.")
+
+async def on_shutdown(bot: Bot):
+    """Clean up on shutdown."""
+    if settings.WEBHOOK_URL:
+        await bot.delete_webhook()
+    logging.info("Bot stopped.")
 
 
 async def main():
-    """Main entry point — registers middleware, routers, and starts polling."""
+    """Main entry point — registers middleware, routers, and starts polling or webhooks."""
     if not settings.NOTION_CLIENT_ID or not settings.NOTION_CLIENT_SECRET or not settings.NOTION_REDIRECT_URI:
         logging.critical("Missing required Notion OAuth config in .env. Exiting.")
         return
-
-    await init_db()
-    await i18n.load_user_langs_from_db()
 
     dp.message.outer_middleware(AuthMiddleware())
     dp.callback_query.outer_middleware(AuthMiddleware())
@@ -71,12 +78,39 @@ async def main():
     dp.include_router(group_expenses.router)
     dp.include_router(reports.router)
 
-    await set_bot_commands()
-    logging.info(f"Bot started. Environment: {settings.ENV_NAME}, Version: {settings.VERSION}")
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
-    asyncio.create_task(start_web_server())
+    app = setup_webapp()
 
-    await dp.start_polling(bot)
+    if settings.WEBHOOK_URL:
+        # Webhook mode
+        webhook_requests_handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+        )
+        webhook_requests_handler.register(app, path=settings.WEBHOOK_PATH)
+        setup_application(app, dp, bot=bot)
+
+        # Run webapp
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', settings.PORT)
+        await site.start()
+        logging.info(f"Webhook server running on port {settings.PORT}.")
+        
+        # Keep running
+        await asyncio.Event().wait()
+    else:
+        # Polling mode
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, '0.0.0.0', settings.PORT)
+        await site.start()
+        logging.info(f"Local web server running on port {settings.PORT}.")
+        
+        await bot.delete_webhook()
+        await dp.start_polling(bot)
 
 
 if __name__ == '__main__':
